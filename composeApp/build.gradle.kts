@@ -104,11 +104,11 @@ kotlin {
 }
 
 android {
-    namespace = "com.gigachat.app"
+    namespace = "ru.chtcholeg.app"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.gigachat.app"
+        applicationId = "ru.chtcholeg.app"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
@@ -139,11 +139,11 @@ dependencies {
 
 compose.desktop {
     application {
-        mainClass = "com.gigachat.app.MainKt"
+        mainClass = "ru.chtcholeg.app.MainKt"
 
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "GigaChat"
+            packageName = "AI Chat"
             packageVersion = "1.0.0"
 
             macOS {
@@ -160,7 +160,7 @@ compose.desktop {
 }
 
 buildkonfig {
-    packageName = "com.gigachat.app"
+    packageName = "ru.chtcholeg.app"
 
     defaultConfigs {
         buildConfigField(STRING, "GIGACHAT_CLIENT_ID", gigachatClientId)

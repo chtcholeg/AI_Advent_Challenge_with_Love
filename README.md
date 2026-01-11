@@ -24,7 +24,7 @@ This project follows the MVI (Model-View-Intent) architecture pattern:
 ## Project Structure
 
 ```
-AI_Advent_Challenge_Preparation/
+AI_Advent_Challenge_6/
 ├── composeApp/
 │   └── src/
 │       ├── commonMain/          # Shared code
@@ -67,7 +67,7 @@ To use this application, you need GigaChat API credentials:
 ### 1. Clone or Download the Project
 
 ```bash
-cd /Users/shchepilov/AndroidStudioProjects/AI_Advent_Challenge_Preparation
+cd /Users/shchepilov/AndroidStudioProjects/AI_Advent_Challenge_6
 ```
 
 ### 2. Configure API Credentials

@@ -1,4 +1,4 @@
-rootProject.name = "AI_Advent_Challenge_Preparation"
+rootProject.name = "AI_Advent_Challenge_6"
 
 pluginManagement {
     repositories {

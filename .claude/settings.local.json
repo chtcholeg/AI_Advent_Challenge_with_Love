@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(./gradlew clean:*)",
+      "Bash(./gradlew composeApp:build)",
+      "Bash(./gradlew composeApp:desktopJar:*)",
+      "Bash(./gradlew:*)",
+      "Bash(tree:*)"
+    ]
+  }
+}
