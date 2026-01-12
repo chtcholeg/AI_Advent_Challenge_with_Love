@@ -38,3 +38,6 @@ composeApp/out/
 
 # Logs
 *.log
+
+# Claude
+*.claude

@@ -6,7 +6,8 @@
       "Bash(./gradlew composeApp:build)",
       "Bash(./gradlew composeApp:desktopJar:*)",
       "Bash(./gradlew:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(xargs:*)"
     ]
   }
 }
