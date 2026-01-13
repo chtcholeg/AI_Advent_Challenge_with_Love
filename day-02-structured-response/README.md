@@ -312,3 +312,7 @@ For issues or questions, please refer to the GigaChat API documentation:
 - Built with [Kotlin Multiplatform](https://kotlinlang.org/docs/multiplatform.html)
 - UI powered by [Compose Multiplatform](https://www.jetbrains.com/lp/compose-multiplatform/)
 - AI by [GigaChat](https://developers.sber.ru/portal/products/gigachat)
+
+## Video
+ 
+- https://disk.yandex.ru/i/iXc0VuhtEMrMNA
