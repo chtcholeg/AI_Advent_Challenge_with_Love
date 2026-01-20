@@ -647,16 +647,36 @@ This project includes comprehensive documentation:
 - **QUESTIONS.md** - Temperature parameter testing guide with 6 curated questions
 - **TEMPERATURE_EXPERIMENT_RESULTS.md** - Real experiment results and analysis 🆕
 
-### 📊 Temperature Experiment Results
+### 📊 Temperature Experiment Results 🆕🔥
+
+**TWO SERIES of experiments** were conducted, revealing critical insights about GigaChat behavior!
 
 The **TEMPERATURE_EXPERIMENT_RESULTS.md** file contains:
+- **18 real experiments** (2 series × 9 experiments each)
 - Real responses from GigaChat at different temperatures (0.0, 0.7, 1.2)
+- **Critical discovery:** Results vary significantly between sessions!
 - Comparative analysis of creativity vs practicality
-- Key discoveries (e.g., Temperature 0.0 doesn't guarantee identical responses!)
 - Practical recommendations based on actual experiments
 - Evidence that **Temperature 0.7 is optimal** for most tasks
 
-**Key Finding:** Even at Temperature = 0.0, GigaChat shows variability, but responses remain logical and predictable.
+**🔥 Critical Findings:**
+
+1. **Temperature 0.0: Conditional Determinism**
+   - Series 1: All 3 responses were DIFFERENT
+   - Series 2: 2 out of 3 responses were IDENTICAL
+   - **Conclusion:** GigaChat CAN be deterministic, but it's not guaranteed
+
+2. **Temperature 1.2: Paradox of High Temperature**
+   - High temperature DOESN'T guarantee high creativity
+   - Can produce very simple responses ("empty shelves")
+   - Unpredictability is higher than expected
+
+3. **Session Variability > Temperature Effect**
+   - Responses vary MORE between sessions than within a session
+   - Context, time, and model state significantly affect results
+   - Multiple requests (3-5) recommended even at low temperatures
+
+**Quick Summary:** See [EXPERIMENT_SUMMARY.md](./EXPERIMENT_SUMMARY.md) for a concise overview of all findings.
 
 ## Acknowledgments
 
