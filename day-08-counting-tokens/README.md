@@ -635,4 +635,4 @@ This project includes comprehensive documentation:
 
 ## Videos
 
-- https://disk.yandex.ru/i/KLQ3aKZOjLeLHg
+- https://disk.yandex.ru/i/gOmSZP4dzGYvCw
