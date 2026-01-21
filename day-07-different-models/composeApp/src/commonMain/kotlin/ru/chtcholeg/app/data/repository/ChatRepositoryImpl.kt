@@ -140,6 +140,60 @@ class ChatRepositoryImpl(
         conversationHistory.clear()
     }
 
+    override suspend fun sendMessageWithCustomSystemPrompt(userMessage: String, systemPrompt: String): AiResponse {
+        val settings = settingsRepository.settings.value
+        val model = Model.fromId(settings.model) ?: Model.GigaChat
+
+        // Create a temporary message list with custom system prompt
+        val tempMessages = mutableListOf(
+            Message(role = "system", content = systemPrompt),
+            Message(role = "user", content = userMessage)
+        )
+
+        // Measure execution time
+        val timedResult = measureTimedValue {
+            when (model.api) {
+                Model.Api.GIGACHAT -> {
+                    ensureGigaChatAuthenticated()
+                    gigaChatApi.sendMessage(
+                        accessToken = gigaChatAccessToken!!,
+                        messages = tempMessages,
+                        model = model.id,
+                        temperature = settings.temperature,
+                        topP = settings.topP,
+                        maxTokens = settings.maxTokens,
+                        repetitionPenalty = settings.repetitionPenalty
+                    )
+                }
+                Model.Api.HUGGINGFACE -> {
+                    huggingFaceApi.sendMessage(
+                        accessToken = huggingFaceToken,
+                        messages = tempMessages,
+                        model = model.id,
+                        temperature = settings.temperature,
+                        topP = settings.topP,
+                        maxTokens = settings.maxTokens,
+                        repetitionPenalty = settings.repetitionPenalty
+                    )
+                }
+            }
+        }
+
+        val response = timedResult.value
+        val executionTimeMs = timedResult.duration.inWholeMilliseconds
+
+        val aiMessage = response.choices.firstOrNull()?.message
+            ?: throw IllegalStateException("No response from AI")
+
+        return AiResponse(
+            content = aiMessage.content,
+            executionTimeMs = executionTimeMs,
+            promptTokens = response.usage?.promptTokens,
+            completionTokens = response.usage?.completionTokens,
+            totalTokens = response.usage?.totalTokens
+        )
+    }
+
     /**
      * Ensure we have a valid authentication token for GigaChat
      */

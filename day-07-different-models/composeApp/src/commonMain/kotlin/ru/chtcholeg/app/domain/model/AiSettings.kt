@@ -14,7 +14,9 @@ data class AiSettings(
     val repetitionPenalty: Float? = DEFAULT_REPETITION_PENALTY,
     val responseMode: ResponseMode = ResponseMode.DEFAULT,
     val systemPrompt: String = DEFAULT_SYSTEM_PROMPT,
-    val preserveHistoryOnSystemPromptChange: Boolean = DEFAULT_PRESERVE_HISTORY
+    val preserveHistoryOnSystemPromptChange: Boolean = DEFAULT_PRESERVE_HISTORY,
+    val summarizationEnabled: Boolean = DEFAULT_SUMMARIZATION_ENABLED,
+    val summarizationMessageThreshold: Int = DEFAULT_SUMMARIZATION_THRESHOLD
 ) {
     companion object {
         const val DEFAULT_MODEL = "GigaChat"
@@ -23,8 +25,12 @@ data class AiSettings(
         const val DEFAULT_MAX_TOKENS = 2048
         const val DEFAULT_REPETITION_PENALTY = 1.0f
         const val DEFAULT_PRESERVE_HISTORY = false
+        const val DEFAULT_SUMMARIZATION_ENABLED = false
+        const val DEFAULT_SUMMARIZATION_THRESHOLD = 10
 
         // Valid ranges
+        const val MIN_SUMMARIZATION_THRESHOLD = 4
+        const val MAX_SUMMARIZATION_THRESHOLD = 50
         const val MIN_TEMPERATURE = 0.0f
         const val MAX_TEMPERATURE = 2.0f
         const val MIN_TOP_P = 0.0f
@@ -293,6 +299,34 @@ EXAMPLE OF CORRECT RESPONSE:
 
 Remember: Your response must be ONLY the XML document, nothing else. No explanations, no markdown, just pure valid XML."""
 
+        const val SUMMARIZATION_SYSTEM_PROMPT = """You are an AI assistant specialized in summarizing conversations. Your task is to create a concise, informative summary of the conversation provided.
+
+CRITICAL RULES:
+1. Summarize the ENTIRE conversation, capturing the main topics discussed
+2. Highlight key questions asked by the user and the main points of AI responses
+3. Preserve important details, decisions, or conclusions reached
+4. Keep the summary concise but comprehensive (aim for 3-5 paragraphs)
+5. Use clear, professional language
+6. Structure the summary with clear sections if multiple topics were discussed
+7. Do NOT add new information or opinions not present in the original conversation
+
+RESPONSE FORMAT:
+## Conversation Summary
+
+**Main Topics Discussed:**
+[List the main subjects covered]
+
+**Key Points:**
+[Bullet points of the most important information exchanged]
+
+**Conclusions/Decisions:**
+[Any conclusions reached or decisions made during the conversation]
+
+**Additional Notes:**
+[Any other relevant observations about the conversation]
+
+Provide a summary that would help someone quickly understand what was discussed without reading the entire conversation."""
+
         val DEFAULT = AiSettings()
     }
 
@@ -303,6 +337,7 @@ Remember: Your response must be ONLY the XML document, nothing else. No explanat
         temperature = temperature?.coerceIn(MIN_TEMPERATURE, MAX_TEMPERATURE),
         topP = topP?.coerceIn(MIN_TOP_P, MAX_TOP_P),
         maxTokens = maxTokens?.coerceIn(MIN_MAX_TOKENS, MAX_MAX_TOKENS),
-        repetitionPenalty = repetitionPenalty?.coerceIn(MIN_REPETITION_PENALTY, MAX_REPETITION_PENALTY)
+        repetitionPenalty = repetitionPenalty?.coerceIn(MIN_REPETITION_PENALTY, MAX_REPETITION_PENALTY),
+        summarizationMessageThreshold = summarizationMessageThreshold.coerceIn(MIN_SUMMARIZATION_THRESHOLD, MAX_SUMMARIZATION_THRESHOLD)
     )
 }

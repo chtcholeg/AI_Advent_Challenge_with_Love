@@ -119,6 +119,20 @@ fun SettingsScreen(
 
             HorizontalDivider()
 
+            // Summarization Settings
+            SummarizationSettings(
+                isEnabled = settings.summarizationEnabled,
+                messageThreshold = settings.summarizationMessageThreshold,
+                onToggle = { enabled ->
+                    settingsRepository.updateSettings(settings.copy(summarizationEnabled = enabled))
+                },
+                onThresholdChange = { threshold ->
+                    settingsRepository.updateSettings(settings.copy(summarizationMessageThreshold = threshold))
+                }
+            )
+
+            HorizontalDivider()
+
             // Temperature slider
             SliderSetting(
                 label = "Temperature",
@@ -477,6 +491,98 @@ private fun PreserveHistorySetting(
                     uncheckedThumbColor = ChatColors.AiBubbleBackground,
                     uncheckedTrackColor = ChatColors.AiBubbleBackground.copy(alpha = 0.3f)
                 )
+            )
+        }
+    }
+}
+
+@Composable
+private fun SummarizationSettings(
+    isEnabled: Boolean,
+    messageThreshold: Int,
+    onToggle: (Boolean) -> Unit,
+    onThresholdChange: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = "Auto-Summarization",
+            style = MaterialTheme.typography.titleMedium,
+            color = ChatColors.HeaderBackground
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Enable Auto-Summarization",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = ChatColors.HeaderBackground
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = if (isEnabled) {
+                        "Conversation will be automatically summarized after $messageThreshold messages"
+                    } else {
+                        "Auto-summarization is disabled. Use the summarize button manually."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = ChatColors.AiBubbleBackground
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Switch(
+                checked = isEnabled,
+                onCheckedChange = onToggle,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = ChatColors.UserBubbleBackground,
+                    checkedTrackColor = ChatColors.UserBubbleBackground.copy(alpha = 0.5f),
+                    uncheckedThumbColor = ChatColors.AiBubbleBackground,
+                    uncheckedTrackColor = ChatColors.AiBubbleBackground.copy(alpha = 0.3f)
+                )
+            )
+        }
+
+        if (isEnabled) {
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Message Threshold",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = ChatColors.HeaderBackground
+                )
+                Text(
+                    text = "$messageThreshold messages",
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = ChatColors.UserBubbleBackground
+                )
+            }
+
+            Slider(
+                value = messageThreshold.toFloat(),
+                onValueChange = { onThresholdChange(it.toInt()) },
+                valueRange = AiSettings.MIN_SUMMARIZATION_THRESHOLD.toFloat()..AiSettings.MAX_SUMMARIZATION_THRESHOLD.toFloat(),
+                steps = (AiSettings.MAX_SUMMARIZATION_THRESHOLD - AiSettings.MIN_SUMMARIZATION_THRESHOLD) / 2 - 1,
+                colors = SliderDefaults.colors(
+                    thumbColor = ChatColors.UserBubbleBackground,
+                    activeTrackColor = ChatColors.UserBubbleBackground,
+                    inactiveTrackColor = ChatColors.AiBubbleBackground.copy(alpha = 0.3f)
+                )
+            )
+
+            Text(
+                text = "Number of messages after which conversation will be automatically summarized (${AiSettings.MIN_SUMMARIZATION_THRESHOLD}-${AiSettings.MAX_SUMMARIZATION_THRESHOLD})",
+                style = MaterialTheme.typography.bodySmall,
+                color = ChatColors.AiBubbleBackground
             )
         }
     }

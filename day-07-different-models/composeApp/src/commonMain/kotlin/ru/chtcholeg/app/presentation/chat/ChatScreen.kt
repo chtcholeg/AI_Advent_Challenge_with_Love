@@ -2,6 +2,7 @@ package ru.chtcholeg.app.presentation.chat
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Settings
@@ -35,6 +36,15 @@ fun ChatScreen(
                         Icon(
                             imageVector = Icons.Default.Settings,
                             contentDescription = "Settings"
+                        )
+                    }
+                    IconButton(
+                        onClick = { store.dispatch(ChatIntent.SummarizeChat) },
+                        enabled = state.messages.filter { it.messageType != ru.chtcholeg.app.domain.model.MessageType.SYSTEM }.size >= 2 && !state.isLoading
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.List,
+                            contentDescription = "Summarize conversation"
                         )
                     }
                     IconButton(

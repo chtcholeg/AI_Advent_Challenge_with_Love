@@ -2,6 +2,7 @@ package ru.chtcholeg.app.presentation.chat
 
 import ru.chtcholeg.app.data.repository.ChatRepository
 import ru.chtcholeg.app.data.repository.SettingsRepository
+import ru.chtcholeg.app.domain.model.AiSettings
 import ru.chtcholeg.app.domain.model.ChatMessage
 import ru.chtcholeg.app.domain.model.MessageType
 import ru.chtcholeg.app.domain.model.ResponseMode
@@ -25,6 +26,8 @@ class ChatStore(
 
     private var lastUserMessage: String? = null
     private var currentResponseMode: ResponseMode = ResponseMode.NORMAL
+    private var messagesSinceLastSummarization: Int = 0
+    private var isSummarizing: Boolean = false
 
     init {
         // Watch for settings changes
@@ -95,6 +98,7 @@ class ChatStore(
             is ChatIntent.ClearChat -> clearChat()
             is ChatIntent.CopyMessage -> copyMessage(intent.messageId)
             is ChatIntent.CopyAllMessages -> copyAllMessages()
+            is ChatIntent.SummarizeChat -> summarizeChat()
         }
     }
 
@@ -131,6 +135,12 @@ class ChatStore(
                         isLoading = false
                     )
                 }
+
+                // Increment message counter (counts user+AI as 2 messages)
+                messagesSinceLastSummarization += 2
+
+                // Check if auto-summarization is needed
+                checkAutoSummarization()
             } catch (e: Exception) {
                 _state.update {
                     it.copy(
@@ -179,5 +189,85 @@ class ChatStore(
                 "$sender: ${message.content}"
             }
         ClipboardManager.copyToClipboard(allMessages)
+    }
+
+    private fun checkAutoSummarization() {
+        val settings = settingsRepository.settings.value
+        if (settings.summarizationEnabled &&
+            messagesSinceLastSummarization >= settings.summarizationMessageThreshold &&
+            !isSummarizing) {
+            summarizeChat()
+        }
+    }
+
+    private fun summarizeChat() {
+        val currentMessages = _state.value.messages
+            .filter { it.messageType != MessageType.SYSTEM }
+
+        // Need at least 2 messages (1 user + 1 AI) to summarize
+        if (currentMessages.size < 2) return
+        if (isSummarizing) return
+
+        isSummarizing = true
+        coroutineScope.launch {
+            _state.update { it.copy(isLoading = true, error = null) }
+
+            try {
+                // Format conversation for summarization
+                val conversationText = currentMessages.joinToString("\n\n") { message ->
+                    val sender = when (message.messageType) {
+                        MessageType.USER -> "User"
+                        MessageType.AI -> "AI"
+                        MessageType.SYSTEM -> "System"
+                    }
+                    "$sender: ${message.content}"
+                }
+
+                // Create summarization request
+                val summarizationRequest = """Please summarize the following conversation:
+
+---
+$conversationText
+---
+
+Provide a concise summary following the format specified in your instructions."""
+
+                // Temporarily set system prompt for summarization
+                val response = chatRepository.sendMessageWithCustomSystemPrompt(
+                    userMessage = summarizationRequest,
+                    systemPrompt = AiSettings.SUMMARIZATION_SYSTEM_PROMPT
+                )
+
+                // Add summary as a system message
+                val summaryMessage = ChatMessage(
+                    content = "📋 **Conversation Summary**\n\n${response.content}",
+                    isFromUser = false,
+                    messageType = MessageType.SYSTEM,
+                    executionTimeMs = response.executionTimeMs,
+                    promptTokens = response.promptTokens,
+                    completionTokens = response.completionTokens,
+                    totalTokens = response.totalTokens
+                )
+
+                _state.update {
+                    it.copy(
+                        messages = it.messages + summaryMessage,
+                        isLoading = false
+                    )
+                }
+
+                // Reset counter after summarization
+                messagesSinceLastSummarization = 0
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(
+                        isLoading = false,
+                        error = "Failed to summarize: ${e.message ?: "Unknown error"}"
+                    )
+                }
+            } finally {
+                isSummarizing = false
+            }
+        }
     }
 }

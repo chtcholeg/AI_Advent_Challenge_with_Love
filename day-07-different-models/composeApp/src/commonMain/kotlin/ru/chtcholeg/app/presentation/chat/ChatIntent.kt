@@ -6,4 +6,5 @@ sealed interface ChatIntent {
     data object ClearChat : ChatIntent
     data class CopyMessage(val messageId: String) : ChatIntent
     data object CopyAllMessages : ChatIntent
+    data object SummarizeChat : ChatIntent
 }
