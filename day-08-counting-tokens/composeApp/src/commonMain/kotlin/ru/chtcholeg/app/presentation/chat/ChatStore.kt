@@ -1,5 +1,6 @@
 package ru.chtcholeg.app.presentation.chat
 
+import ru.chtcholeg.app.data.local.ChatLocalRepository
 import ru.chtcholeg.app.data.repository.ChatRepository
 import ru.chtcholeg.app.data.repository.SettingsRepository
 import ru.chtcholeg.app.domain.model.AiSettings
@@ -13,12 +14,14 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class ChatStore(
     private val sendMessageUseCase: SendMessageUseCase,
     private val chatRepository: ChatRepository,
+    private val chatLocalRepository: ChatLocalRepository,
     private val settingsRepository: SettingsRepository,
     private val coroutineScope: CoroutineScope
 ) {
@@ -29,6 +32,7 @@ class ChatStore(
     private var currentResponseMode: ResponseMode = ResponseMode.NORMAL
     private var messagesSinceLastSummarization: Int = 0
     private var isSummarizing: Boolean = false
+    private var currentSessionId: String? = null
 
     init {
         // Watch for settings changes
@@ -75,8 +79,13 @@ class ChatStore(
                     chatRepository.clearHistory()
                     lastUserMessage = null
                     _state.update {
-                        ChatState(messages = listOf(systemMessage))
+                        it.copy(
+                            messages = listOf(systemMessage),
+                            currentSessionId = null,
+                            currentSessionTitle = "New Chat"
+                        )
                     }
+                    currentSessionId = null
                 }
             } else {
                 // Normal mode - remove system messages
@@ -89,7 +98,14 @@ class ChatStore(
                     // Clear everything
                     chatRepository.clearHistory()
                     lastUserMessage = null
-                    _state.update { ChatState() }
+                    _state.update {
+                        it.copy(
+                            messages = emptyList(),
+                            currentSessionId = null,
+                            currentSessionTitle = "New Chat"
+                        )
+                    }
+                    currentSessionId = null
                 }
             }
         }
@@ -104,6 +120,9 @@ class ChatStore(
             is ChatIntent.CopyAllMessages -> copyAllMessages()
             is ChatIntent.SummarizeChat -> summarizeChat()
             is ChatIntent.SummarizeAndReplaceChat -> summarizeAndReplaceChat()
+            is ChatIntent.CreateNewSession -> createNewSession()
+            is ChatIntent.LoadSession -> loadSession(intent.sessionId)
+            is ChatIntent.UpdateSessionTitle -> updateSessionTitle(intent.title)
         }
     }
 
@@ -115,12 +134,36 @@ class ChatStore(
             _state.update { it.copy(isLoading = true, error = null) }
 
             try {
+                // Create session if needed (first message)
+                if (currentSessionId == null) {
+                    val model = settingsRepository.settings.value.model
+                    val modelName = Model.fromId(model)?.displayName ?: "Unknown"
+                    val title = text.take(50).let { if (text.length > 50) "$it..." else it }
+
+                    val session = chatLocalRepository.createSession(
+                        title = title,
+                        modelName = modelName
+                    )
+                    currentSessionId = session.id
+                    _state.update {
+                        it.copy(
+                            currentSessionId = session.id,
+                            currentSessionTitle = session.title
+                        )
+                    }
+                }
+
                 // Add user message to state immediately
                 val userMessage = ChatMessage(
                     content = text,
                     isFromUser = true
                 )
                 _state.update { it.copy(messages = it.messages + userMessage) }
+
+                // Save user message to local storage
+                currentSessionId?.let { sessionId ->
+                    chatLocalRepository.saveMessage(sessionId, userMessage)
+                }
 
                 // Get AI response
                 val response = sendMessageUseCase(text)
@@ -139,6 +182,11 @@ class ChatStore(
                         messages = it.messages + aiMessage,
                         isLoading = false
                     )
+                }
+
+                // Save AI message to local storage
+                currentSessionId?.let { sessionId ->
+                    chatLocalRepository.saveMessage(sessionId, aiMessage)
                 }
 
                 // Increment message counter (counts user+AI as 2 messages)
@@ -170,9 +218,73 @@ class ChatStore(
     }
 
     private fun clearChat() {
-        _state.update { ChatState() }
+        // Keep current session in history, just start fresh UI
+        _state.update {
+            ChatState(
+                currentModelName = it.currentModelName
+            )
+        }
         chatRepository.clearHistory()
         lastUserMessage = null
+        currentSessionId = null
+        messagesSinceLastSummarization = 0
+    }
+
+    private fun createNewSession() {
+        clearChat()
+    }
+
+    private fun loadSession(sessionId: String) {
+        coroutineScope.launch {
+            _state.update { it.copy(isLoading = true, error = null) }
+
+            try {
+                val session = chatLocalRepository.getSessionById(sessionId)
+                if (session == null) {
+                    _state.update { it.copy(isLoading = false, error = "Session not found") }
+                    return@launch
+                }
+
+                // Load messages from database
+                val messages = chatLocalRepository.getMessagesForSession(sessionId).first()
+
+                // Update state
+                currentSessionId = sessionId
+                _state.update {
+                    it.copy(
+                        messages = messages,
+                        isLoading = false,
+                        currentSessionId = sessionId,
+                        currentSessionTitle = session.title,
+                        currentModelName = session.modelName
+                    )
+                }
+
+                // Clear and restore conversation history in repository
+                chatRepository.clearHistory()
+                // Note: we don't restore to API history since messages are stored locally
+                // The next message will start fresh with the AI
+
+                lastUserMessage = messages.lastOrNull { it.isFromUser }?.content
+                messagesSinceLastSummarization = messages.count { it.messageType != MessageType.SYSTEM }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(
+                        isLoading = false,
+                        error = "Failed to load session: ${e.message}"
+                    )
+                }
+            }
+        }
+    }
+
+    private fun updateSessionTitle(title: String) {
+        coroutineScope.launch {
+            currentSessionId?.let { sessionId ->
+                chatLocalRepository.updateSessionTitle(sessionId, title)
+                _state.update { it.copy(currentSessionTitle = title) }
+            }
+        }
     }
 
     private fun copyMessage(messageId: String) {
@@ -245,7 +357,7 @@ Provide a concise summary following the format specified in your instructions.""
 
                 // Add summary as a system message
                 val summaryMessage = ChatMessage(
-                    content = "📋 **Conversation Summary**\n\n${response.content}",
+                    content = "**Conversation Summary**\n\n${response.content}",
                     isFromUser = false,
                     messageType = MessageType.SYSTEM,
                     executionTimeMs = response.executionTimeMs,
@@ -259,6 +371,11 @@ Provide a concise summary following the format specified in your instructions.""
                         messages = it.messages + summaryMessage,
                         isLoading = false
                     )
+                }
+
+                // Save summary to local storage
+                currentSessionId?.let { sessionId ->
+                    chatLocalRepository.saveMessage(sessionId, summaryMessage)
                 }
 
                 // Reset counter after summarization
@@ -331,7 +448,7 @@ The user may now continue the conversation based on this context."""
 
                 // Create system message for UI showing the summary
                 val summaryMessage = ChatMessage(
-                    content = "📋 **Conversation replaced with summary**\n\n$summaryContent\n\n---\n*You can now continue the conversation based on this summary.*",
+                    content = "**Conversation replaced with summary**\n\n$summaryContent\n\n---\n*You can now continue the conversation based on this summary.*",
                     isFromUser = false,
                     messageType = MessageType.SYSTEM,
                     executionTimeMs = response.executionTimeMs,
@@ -339,6 +456,12 @@ The user may now continue the conversation based on this context."""
                     completionTokens = response.completionTokens,
                     totalTokens = response.totalTokens
                 )
+
+                // Clear messages in local storage and add summary
+                currentSessionId?.let { sessionId ->
+                    chatLocalRepository.deleteAllMessagesInSession(sessionId)
+                    chatLocalRepository.saveMessage(sessionId, summaryMessage)
+                }
 
                 // Replace all messages with just the summary
                 _state.update {

@@ -30,10 +30,15 @@ GigaChat Multiplatform Chat Application - a cross-platform AI chat app built wit
 - **AiResponse Model**: New domain model class to return response with metadata from repository
 - **measureTimedValue**: Kotlin time measurement for accurate execution timing
 
-**New Feature (day-08)**: UI/UX Improvements:
+**New Feature (day-08)**: UI/UX Improvements & Local Chat Storage:
 - **Arrow Icons for Tokens**: Token breakdown now shows "↑42 + ↓114" (↑=prompt/input, ↓=completion/output)
 - **Model Name in Header**: Current AI model name displayed under "AI Chat" title
 - **Response Trimming**: AI responses automatically trimmed to remove leading/trailing whitespace
+- **Local Chat Storage (SQLDelight)**: Persistent storage of chat sessions with full history recovery
+- **Session Management**: Create, load, archive, unarchive, and delete chat sessions
+- **Chat History Screen**: Browse all sessions with search, archive toggle, and session preview
+- **Auto-save**: Messages automatically saved to local database as they are sent/received
+- **Cross-platform Database**: SQLDelight with platform-specific drivers (Android SQLite, Desktop JDBC)
 
 Response modes (Normal, JSON, XML, Dialog, Step-by-Step, Expert Panel) are mutually exclusive through dropdown menu selection.
 
@@ -107,12 +112,14 @@ These are loaded by `composeApp/build.gradle.kts` and embedded at build time via
 
 **Presentation Layer**:
 - `presentation/chat/`: MVI components (Store, Intent, State, Screen)
+- `presentation/session/`: Session list MVI components (SessionListStore, SessionListState, SessionListIntent, SessionListScreen) **(NEW in day-08)**
 - `presentation/settings/`: AI parameter configuration UI
 - `presentation/components/`: Reusable UI components (MessageList, MessageItem, MessageInput)
 - `presentation/theme/`: Material Design 3 theming with dark mode support
 
 **Domain Layer**:
 - `domain/model/ChatMessage`: UI-focused message model with auto-generated IDs, MessageType enum (USER, AI, SYSTEM), plus metadata fields: executionTimeMs, promptTokens, completionTokens, totalTokens **(NEW in day-07)**
+- `domain/model/ChatSession`: Session model with id, title, timestamps, modelName, isArchived, lastMessage, messageCount **(NEW in day-08)**
 - `domain/model/AiResponse`: Data class containing response content and metadata (executionTimeMs, token counts) **(NEW in day-07)**
 - `domain/model/ResponseMode`: Enum for AI response modes (NORMAL, STRUCTURED_JSON, STRUCTURED_XML, DIALOG, STEP_BY_STEP, EXPERT_PANEL) - mutually exclusive by design
 - `domain/model/AiSettings`: AI parameter configuration with validation (temperature, topP, maxTokens, repetitionPenalty, responseMode, systemPrompt, preserveHistoryOnSystemPromptChange). Includes system prompts: DIALOG_SYSTEM_PROMPT, STEP_BY_STEP_SYSTEM_PROMPT, EXPERT_PANEL_SYSTEM_PROMPT, STRUCTURED_XML_SYSTEM_PROMPT
@@ -129,32 +136,43 @@ These are loaded by `composeApp/build.gradle.kts` and embedded at build time via
   - `ChatRepository`: Interface returning AiResponse with metadata **(UPDATED in day-07)**
   - `ChatRepositoryImpl`: Maintains conversation history, routes to correct API based on selected model, manages GigaChat token expiration, measures execution time using measureTimedValue **(UPDATED in day-07)**
   - `SettingsRepositoryImpl`: In-memory settings state with validation
+- `data/local/`: Local database storage **(NEW in day-08)**
+  - `ChatDatabase`: SQLDelight generated database class
+  - `ChatLocalRepository`: Interface for local CRUD operations on sessions and messages
+  - `ChatLocalRepositoryImpl`: Implementation with Flow-based reactive queries
+  - `DatabaseDriverFactory`: expect/actual for platform-specific SQLite drivers
+  - SQL schemas: `ChatSession.sq`, `ChatMessage.sq` in `sqldelight/` directory
 
 ### Dependency Injection (Koin)
 
 **Setup**: `di/Koin.kt` defines the DI container with `initKoin()` function.
 
 **Modules**:
-- **App Module** (common): HttpClient (Ktor with JSON, logging, 30s timeout), API implementations, repositories, use cases, ChatStore
-- **Platform Modules** (expect/actual): Android provides Application context, Desktop provides empty module
+- **App Module** (common): HttpClient (Ktor with JSON, logging, 30s timeout), API implementations, repositories, use cases, ChatStore, SessionListStore, ChatDatabase, ChatLocalRepository **(UPDATED in day-08)**
+- **Platform Modules** (expect/actual): Android provides Application context and DatabaseDriverFactory, Desktop provides DatabaseDriverFactory **(UPDATED in day-08)**
 
 **Key Singletons**:
 - HttpClient: Shared across all platforms with content negotiation, logging, timeout config
 - API implementations: GigaChatApi, HuggingFaceApi
-- Repositories: ChatRepository, SettingsRepository
+- Repositories: ChatRepository, SettingsRepository, ChatLocalRepository **(UPDATED in day-08)**
+- Database: ChatDatabase (SQLDelight) **(NEW in day-08)**
 
-**Scoping**: ChatStore uses `CoroutineScope(Dispatchers.Default + SupervisorJob())` for async operations.
+**Scoping**: ChatStore and SessionListStore use `CoroutineScope(Dispatchers.Default + SupervisorJob())` for async operations.
 
 ### Multi-Platform Structure
 
 **Common Code** (`composeApp/src/commonMain`): 99% of app logic (UI, data, domain, DI)
 
 **Platform-Specific Code**:
-- `androidMain/`: Application class, MainActivity, Activity Compose integration
-- `desktopMain/`: Desktop entry point (`main.kt` with Window configuration)
+- `androidMain/`: Application class, MainActivity, Activity Compose integration, DatabaseDriverFactory (AndroidSqliteDriver), ClipboardManager
+- `desktopMain/`: Desktop entry point (`main.kt` with Window configuration), DatabaseDriverFactory (JdbcSqliteDriver), ClipboardManager
 
 **Ktor Engines**:
 - Android/Desktop: OkHttp
+
+**Database Location** **(NEW in day-08)**:
+- Android: Internal app storage (`chat.db`)
+- Desktop: `~/.ai-chat/chat.db`
 
 ## Key Implementation Patterns
 
@@ -186,10 +204,17 @@ The app supports multiple AI providers (GigaChat, Hugging Face) through:
 | MVI Store | `presentation/chat/ChatStore.kt` |
 | Chat Screen | `presentation/chat/ChatScreen.kt` |
 | Settings Screen | `presentation/settings/SettingsScreen.kt` |
+| **Session List Store** | `presentation/session/SessionListStore.kt` **(NEW in day-08)** |
+| **Session List Screen** | `presentation/session/SessionListScreen.kt` **(NEW in day-08)** |
 | Chat Repository | `data/repository/ChatRepositoryImpl.kt` |
+| **Local Repository** | `data/local/ChatLocalRepositoryImpl.kt` **(NEW in day-08)** |
+| **SQL Schemas** | `sqldelight/ru/chtcholeg/app/data/local/{ChatSession,ChatMessage}.sq` **(NEW in day-08)** |
+| **Database Factory (expect)** | `data/local/DatabaseDriverFactory.kt` **(NEW in day-08)** |
+| **Database Factory (Android)** | `androidMain/.../data/local/DatabaseDriverFactory.android.kt` **(NEW in day-08)** |
+| **Database Factory (Desktop)** | `desktopMain/.../data/local/DatabaseDriverFactory.desktop.kt` **(NEW in day-08)** |
 | GigaChat API | `data/api/GigaChatApiImpl.kt` |
 | Koin DI Setup | `di/Koin.kt` |
-| Domain Models | `domain/model/{ChatMessage,AiSettings,Model}.kt` |
+| Domain Models | `domain/model/{ChatMessage,AiSettings,Model,ChatSession}.kt` |
 | **AiResponse Model** | `domain/model/AiResponse.kt` **(NEW in day-07)** |
 | **Clipboard (expect)** | `util/ClipboardManager.kt` |
 | **Clipboard (Android)** | `androidMain/.../util/ClipboardManager.android.kt` |
@@ -222,7 +247,53 @@ The app supports multiple AI providers (GigaChat, Hugging Face) through:
 Use expect/actual pattern:
 - Declare `expect` function in `commonMain`
 - Implement `actual` function in `androidMain`/`desktopMain`
-- Example: `di/PlatformModule.kt`, `util/ClipboardManager.kt`
+- Example: `di/PlatformModule.kt`, `util/ClipboardManager.kt`, `data/local/DatabaseDriverFactory.kt`
+
+### Local Chat Storage (NEW in day-08)
+
+The application uses SQLDelight for persistent local storage of chat sessions and messages.
+
+**Database Schema:**
+```
+ChatSessionEntity                    ChatMessageEntity
+├── id (PK, TEXT)                   ├── id (PK, TEXT)
+├── title (TEXT)                    ├── sessionId (FK → ChatSessionEntity)
+├── createdAt (INTEGER)             ├── content (TEXT)
+├── updatedAt (INTEGER)             ├── isFromUser (INTEGER: 0/1)
+├── modelName (TEXT)                ├── timestamp (INTEGER)
+└── isArchived (INTEGER: 0/1)       ├── messageType (TEXT)
+                                    ├── executionTimeMs (INTEGER?)
+                                    ├── promptTokens (INTEGER?)
+                                    ├── completionTokens (INTEGER?)
+                                    └── totalTokens (INTEGER?)
+```
+
+**Key Components:**
+- `ChatLocalRepository`: Interface defining CRUD operations for sessions and messages
+- `ChatLocalRepositoryImpl`: Implementation using SQLDelight queries with Flow-based reactive data
+- `DatabaseDriverFactory`: Platform-specific SQLite driver creation (expect/actual pattern)
+- `SessionListStore`: MVI store for session list management
+- `SessionListScreen`: UI for browsing, searching, and managing sessions
+
+**Auto-save Flow:**
+1. First message creates a new session with auto-generated title (first 50 chars of message)
+2. Each sent/received message is saved to database via `ChatLocalRepository.saveMessage()`
+3. Session timestamp updated on each new message
+4. Messages persist across app restarts
+
+**Session Management Intents:**
+```kotlin
+ChatIntent.CreateNewSession    // Start fresh chat
+ChatIntent.LoadSession(id)     // Load existing session
+ChatIntent.UpdateSessionTitle  // Rename session
+```
+
+**Adding New Database Tables:**
+1. Create `.sq` file in `sqldelight/ru/chtcholeg/app/data/local/`
+2. Define table schema and queries
+3. Run `./gradlew generateCommonMainChatDatabaseInterface` to generate Kotlin code
+4. Add mapper functions in repository implementation
+5. Update Koin module if new repository needed
 
 ### Response Metadata Display (NEW in day-07)
 
@@ -284,6 +355,14 @@ ClipboardManager.copyToClipboard("Text to copy")
 **Symptom**: API calls fail after long idle time
 **Fix**: ChatRepositoryImpl automatically re-authenticates. Check token expiry logic in `sendMessage()`.
 
+### Database Schema Changes (NEW in day-08)
+**Symptom**: App crashes on startup after modifying `.sq` files
+**Fix**:
+1. Run `./gradlew clean` to clear generated code
+2. Check SQL syntax in `.sq` files
+3. For schema migrations, consider adding migration queries or clearing app data during development
+4. Desktop: Delete `~/.ai-chat/chat.db` to reset database
+
 ## Configuration Locations
 
 - **Android**: `composeApp/build.gradle.kts` android block (namespace, SDK versions, signing)
@@ -291,6 +370,7 @@ ClipboardManager.copyToClipboard("Text to copy")
 - **Dependencies**: `gradle/libs.versions.toml` (version catalog)
 - **Gradle Settings**: `settings.gradle.kts` (repositories, plugin management)
 - **Package Name**: `ru.chtcholeg.app` (defined in BuildKonfig and Android namespace)
+- **SQLDelight**: `composeApp/build.gradle.kts` sqldelight block (database name, package, srcDirs) **(NEW in day-08)**
 
 ## AI Model Settings
 

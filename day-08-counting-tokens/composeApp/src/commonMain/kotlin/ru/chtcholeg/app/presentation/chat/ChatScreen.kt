@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.AlertDialog
@@ -44,6 +46,8 @@ import ru.chtcholeg.app.presentation.theme.chatColors
 fun ChatScreen(
     store: ChatStore,
     onNavigateToSettings: () -> Unit,
+    onNavigateToHistory: () -> Unit,
+    onNewChat: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val state by store.state.collectAsState()
@@ -131,6 +135,18 @@ fun ChatScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onNewChat) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "New Chat"
+                        )
+                    }
+                    IconButton(onClick = onNavigateToHistory) {
+                        Icon(
+                            imageVector = Icons.Default.Menu,
+                            contentDescription = "Chat History"
+                        )
+                    }
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(
                             imageVector = Icons.Default.Settings,

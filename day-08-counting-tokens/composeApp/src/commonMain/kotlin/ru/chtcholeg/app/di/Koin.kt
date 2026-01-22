@@ -4,12 +4,17 @@ import ru.chtcholeg.app.data.api.GigaChatApi
 import ru.chtcholeg.app.data.api.GigaChatApiImpl
 import ru.chtcholeg.app.data.api.HuggingFaceApi
 import ru.chtcholeg.app.data.api.HuggingFaceApiImpl
+import ru.chtcholeg.app.data.local.ChatDatabase
+import ru.chtcholeg.app.data.local.ChatLocalRepository
+import ru.chtcholeg.app.data.local.ChatLocalRepositoryImpl
+import ru.chtcholeg.app.data.local.DatabaseDriverFactory
 import ru.chtcholeg.app.data.repository.ChatRepository
 import ru.chtcholeg.app.data.repository.ChatRepositoryImpl
 import ru.chtcholeg.app.data.repository.SettingsRepository
 import ru.chtcholeg.app.data.repository.SettingsRepositoryImpl
 import ru.chtcholeg.app.domain.usecase.SendMessageUseCase
 import ru.chtcholeg.app.presentation.chat.ChatStore
+import ru.chtcholeg.app.presentation.session.SessionListStore
 import ru.chtcholeg.app.util.getEnvVariable
 import io.ktor.client.*
 import io.ktor.client.plugins.*
@@ -61,6 +66,11 @@ val appModule = module {
     single<GigaChatApi> { GigaChatApiImpl(get()) }
     single<HuggingFaceApi> { HuggingFaceApiImpl(get()) }
 
+    // Database
+    single { get<DatabaseDriverFactory>().createDriver() }
+    single { ChatDatabase(get()) }
+    single<ChatLocalRepository> { ChatLocalRepositoryImpl(get()) }
+
     // Repositories
     single<SettingsRepository> { SettingsRepositoryImpl() }
 
@@ -78,12 +88,20 @@ val appModule = module {
     // Use Case
     factory { SendMessageUseCase(get()) }
 
-    // Store
+    // Stores
     factory {
         ChatStore(
             sendMessageUseCase = get(),
             chatRepository = get(),
+            chatLocalRepository = get(),
             settingsRepository = get(),
+            coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+        )
+    }
+
+    factory {
+        SessionListStore(
+            chatLocalRepository = get(),
             coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
         )
     }

@@ -11,6 +11,7 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.buildkonfig)
+    alias(libs.plugins.sqldelight)
 }
 
 // Load credentials from local.properties
@@ -64,6 +65,10 @@ kotlin {
                 // Koin
                 implementation(libs.koin.core)
                 implementation(libs.koin.compose)
+
+                // SQLDelight
+                implementation(libs.sqldelight.runtime)
+                implementation(libs.sqldelight.coroutines)
             }
         }
 
@@ -73,6 +78,7 @@ kotlin {
                 implementation(libs.activity.compose)
                 implementation(libs.ktor.client.okhttp)
                 implementation(libs.koin.android)
+                implementation(libs.sqldelight.android.driver)
             }
         }
 
@@ -80,6 +86,7 @@ kotlin {
             dependencies {
                 implementation(compose.desktop.currentOs)
                 implementation(libs.ktor.client.okhttp)
+                implementation(libs.sqldelight.jvm.driver)
             }
         }
     }
@@ -148,5 +155,14 @@ buildkonfig {
         buildConfigField(STRING, "GIGACHAT_CLIENT_ID", gigachatClientId)
         buildConfigField(STRING, "GIGACHAT_CLIENT_SECRET", gigachatClientSecret)
         buildConfigField(STRING, "HUGGINGFACE_API_TOKEN", huggingfaceApiToken)
+    }
+}
+
+sqldelight {
+    databases {
+        create("ChatDatabase") {
+            packageName.set("ru.chtcholeg.app.data.local")
+            srcDirs.setFrom("src/commonMain/sqldelight")
+        }
     }
 }

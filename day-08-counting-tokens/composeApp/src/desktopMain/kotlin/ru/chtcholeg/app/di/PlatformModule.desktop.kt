@@ -3,6 +3,7 @@ package ru.chtcholeg.app.di
 import io.ktor.client.engine.okhttp.*
 import org.koin.core.module.Module
 import org.koin.dsl.module
+import ru.chtcholeg.app.data.local.DatabaseDriverFactory
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import javax.net.ssl.SSLContext
@@ -29,4 +30,7 @@ actual fun platformModule(): Module = module {
             }
         }
     }
+
+    // Database driver factory
+    single { DatabaseDriverFactory() }
 }
