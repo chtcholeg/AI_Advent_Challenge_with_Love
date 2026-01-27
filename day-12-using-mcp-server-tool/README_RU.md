@@ -518,4 +518,4 @@ adb shell am start -n ru.chtcholeg.app/.MainActivity
 
 ## Видео
 
-- https://disk.yandex.ru/i/-xKKVH1NWKyaJw
+- https://disk.yandex.ru/i/4GtOB1snMshW5A

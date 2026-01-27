@@ -518,4 +518,4 @@ This project includes comprehensive documentation:
 
 ## Videos
 
-- https://disk.yandex.ru/i/-xKKVH1NWKyaJw
+- https://disk.yandex.ru/i/4GtOB1snMshW5A
