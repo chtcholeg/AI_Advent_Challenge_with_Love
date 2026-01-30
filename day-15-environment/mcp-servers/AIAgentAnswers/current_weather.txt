@@ -1,0 +1,44 @@
+Current Weather for Moscow, Moscow, Russia
+==================================================
+
+🌡️  Temperature: -16.5°C
+🤒 Feels like: -21.5°C
+☁️  Conditions: Partly cloudy
+💧 Humidity: 79%
+🌧️  Precipitation: 0.0 mm
+💨 Wind: 8.6 km/h N
+🔽 Pressure: 1020.0 hPa
+
+📍 Coordinates: 55.75°, 37.62°
+🕐 Timezone: Europe/Moscow
+📅 Updated: 2026-01-30T11:15
+
+Current Weather for Tokyo, Tokyo, Japan
+==================================================
+
+🌡️  Temperature: 4.4°C
+🤒 Feels like: 0.4°C
+☁️  Conditions: Clear sky
+💧 Humidity: 44%
+🌧️  Precipitation: 0.0 mm
+💨 Wind: 6.9 km/h N
+🔽 Pressure: 1017.4 hPa
+
+📍 Coordinates: 35.69°, 139.69°
+🕐 Timezone: Asia/Tokyo
+📅 Updated: 2026-01-30T17:15
+
+Current Weather for Paris, Île-de-France, France
+==================================================
+
+🌡️  Temperature: 6.2°C
+🤒 Feels like: 4.1°C
+☁️  Conditions: Overcast
+💧 Humidity: 91%
+🌧️  Precipitation: 0.0 mm
+💨 Wind: 5.9 km/h S
+🔽 Pressure: 995.3 hPa
+
+📍 Coordinates: 48.85°, 2.35°
+🕐 Timezone: Europe/Paris
+📅 Updated: 2026-01-30T09:15

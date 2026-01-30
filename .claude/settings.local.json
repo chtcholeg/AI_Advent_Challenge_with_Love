@@ -9,7 +9,10 @@
       "Bash(tree:*)",
       "Bash(xargs:*)",
       "Bash(ls:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(chmod:*)",
+      "Bash(python launcher.py:*)",
+      "Bash(python3:*)"
     ]
   }
 }

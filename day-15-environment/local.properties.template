@@ -1,0 +1,9 @@
+# GigaChat API Credentials
+# Copy this file to local.properties and fill in your actual credentials
+
+gigachat.clientId=your_client_id_here
+gigachat.clientSecret=your_client_secret_here
+
+# HuggingFace API Token
+# Get your token from https://huggingface.co/settings/tokens
+huggingface.apiToken=your_huggingface_token_here

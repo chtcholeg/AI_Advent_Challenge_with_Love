@@ -1,0 +1,199 @@
+Metadata-Version: 2.4
+Name: mcp-servers
+Version: 1.0.0
+Summary: Collection of MCP (Model Context Protocol) servers
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi>=0.109.0
+Requires-Dist: uvicorn>=0.27.0
+Requires-Dist: httpx>=0.26.0
+Provides-Extra: telegram
+Requires-Dist: telethon>=1.34.0; extra == "telegram"
+Provides-Extra: github
+Provides-Extra: weather
+Provides-Extra: all
+Requires-Dist: telethon>=1.34.0; extra == "all"
+
+# MCP Servers
+
+A collection of MCP (Model Context Protocol) servers for AI integrations.
+
+## Structure
+
+```
+mcp-servers/
+├── shared/                  # Common components
+│   ├── mcp_protocol.py      # JSON-RPC 2.0 protocol handler
+│   ├── sse_transport.py     # Server-Sent Events transport
+│   └── models.py            # ToolResult, BaseTool classes
+│
+├── telegram/                # Telegram channel reader
+├── github/                  # GitHub repository data
+├── weather/                 # Weather data (Open-Meteo)
+├── timeservice/             # Time service (any timezone/city)
+└── currency/                # Currency exchange rates (Frankfurter)
+```
+
+## Installation
+
+```bash
+cd mcp-servers
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install all servers
+pip install -e ".[all]"
+
+# Or install specific server
+pip install -e ".[telegram]"
+```
+
+## Running Servers
+
+### Using Launcher (Recommended)
+
+The launcher provides centralized port management and can start multiple servers:
+
+```bash
+# List all servers and their ports
+python launcher.py
+
+# Start a single server
+python launcher.py telegram
+
+# Start multiple servers
+python launcher.py telegram github
+
+# Start all servers
+python launcher.py --all
+
+# Start all without authentication
+python launcher.py --all --no-auth
+
+# Check port availability
+python launcher.py --check
+```
+
+Example output:
+```
+Registered MCP Servers:
+============================================================
+Name         Port     Status     Description
+------------------------------------------------------------
+github       8000     free       GitHub repository data
+telegram     8001     free       Telegram channel reader
+weather      8002     free       Weather data (Open-Meteo)
+timeservice  8003     free       Current time in any timezone/city
+currency     8004     free       Currency exchange rates (Frankfurter)
+------------------------------------------------------------
+Total: 5 servers
+```
+
+### Running Individual Servers
+
+Each server can also be run directly:
+
+```bash
+python -m telegram.main --no-auth --port 8001
+python -m github.main --no-auth --port 8000
+python -m weather.main --no-auth --port 8002
+python -m timeservice.main --no-auth --port 8003
+python -m currency.main --no-auth --port 8004
+```
+
+Or using installed commands:
+
+```bash
+mcp-telegram --no-auth
+mcp-github --no-auth
+mcp-weather --no-auth
+mcp-timeservice --no-auth
+mcp-currency --no-auth
+```
+
+## Environment Variables
+
+### Common
+- `MCP_API_KEY` - Server API key (required unless `--no-auth`)
+- `HOST` - Bind address (default: 0.0.0.0)
+- `PORT` - Bind port (varies by server)
+
+### Telegram
+- `TELEGRAM_API_ID` - From https://my.telegram.org
+- `TELEGRAM_API_HASH` - From https://my.telegram.org
+- `TELEGRAM_SESSION_FILE` - Session file path (default: telegram_session)
+
+### GitHub
+- `GITHUB_TOKEN` - Personal access token (optional, raises rate limit)
+
+### Weather
+No additional configuration required. Uses Open-Meteo (free, no API key).
+
+### TimeService
+No additional configuration required. Uses Python's built-in datetime and zoneinfo.
+
+### Currency
+No additional configuration required. Uses Frankfurter API (free, no API key).
+
+## Adding a New Server
+
+1. Create a new directory under `mcp-servers/`:
+   ```
+   mcp-servers/myserver/
+   ├── __init__.py
+   ├── main.py
+   ├── config.py
+   ├── tools.py
+   └── my_client.py
+   ```
+
+2. Import shared components in your tools:
+   ```python
+   from shared import ToolResult, BaseTool, McpProtocolHandler, SseTransport
+   ```
+
+3. Extend `BaseTool` for your tools:
+   ```python
+   class MyTool(BaseTool):
+       name = "my_tool"
+       description = "Does something useful"
+       input_schema = {...}
+
+       async def execute(self, arguments: dict) -> ToolResult:
+           # Your implementation
+           return ToolResult("Success!")
+   ```
+
+4. **Register in launcher** (`launcher.py`):
+   ```python
+   SERVERS: dict[str, ServerConfig] = {
+       # ... existing servers ...
+       "myserver": ServerConfig(
+           name="myserver",
+           module="myserver.main",
+           port=8003,  # Next available port
+           description="My awesome integration",
+       ),
+   }
+   ```
+
+5. Add entry point in `pyproject.toml`:
+   ```toml
+   [project.scripts]
+   mcp-myserver = "myserver.main:main"
+   ```
+
+## API Endpoints
+
+Each server exposes:
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /` | Server info |
+| `GET /health` | Health check |
+| `GET /sse` | SSE connection for MCP |
+| `POST /message?sessionId=...` | Send MCP message |
+| `GET /tools` | List available tools |
+| `GET /docs` | OpenAPI documentation |

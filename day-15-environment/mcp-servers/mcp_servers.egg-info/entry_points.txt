@@ -1,0 +1,6 @@
+[console_scripts]
+mcp = launcher:main
+mcp-fileops = fileops.main:main
+mcp-github = github.main:main
+mcp-telegram = telegram.main:main
+mcp-weather = weather.main:main

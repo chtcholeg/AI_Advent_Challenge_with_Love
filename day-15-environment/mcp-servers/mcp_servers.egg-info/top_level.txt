@@ -1,0 +1,5 @@
+fileops
+github
+shared
+telegram
+weather

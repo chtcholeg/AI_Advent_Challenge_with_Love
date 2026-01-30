@@ -1,0 +1,56 @@
+CREATE TABLE McpServerEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    configJson TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    createdAt INTEGER NOT NULL,
+    lastConnected INTEGER
+);
+
+-- Index for fast filtering by enabled status
+CREATE INDEX idx_mcp_server_enabled ON McpServerEntity(enabled);
+
+-- Get all MCP servers, sorted by creation date
+selectAll:
+SELECT * FROM McpServerEntity
+ORDER BY createdAt DESC;
+
+-- Get only enabled MCP servers
+selectEnabled:
+SELECT * FROM McpServerEntity
+WHERE enabled = 1
+ORDER BY createdAt DESC;
+
+-- Get server by id
+selectById:
+SELECT * FROM McpServerEntity
+WHERE id = ?;
+
+-- Insert new server
+insert:
+INSERT INTO McpServerEntity(id, name, type, configJson, enabled, createdAt, lastConnected)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+-- Update server details
+update:
+UPDATE McpServerEntity
+SET name = ?, type = ?, configJson = ?, enabled = ?
+WHERE id = ?;
+
+-- Update last connected timestamp
+updateLastConnected:
+UPDATE McpServerEntity
+SET lastConnected = ?
+WHERE id = ?;
+
+-- Toggle enabled status
+toggleEnabled:
+UPDATE McpServerEntity
+SET enabled = CASE WHEN enabled = 1 THEN 0 ELSE 1 END
+WHERE id = ?;
+
+-- Delete server by id
+deleteById:
+DELETE FROM McpServerEntity
+WHERE id = ?;

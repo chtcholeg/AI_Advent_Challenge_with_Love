@@ -1,0 +1,11 @@
+# Common dependencies for all MCP servers
+fastapi>=0.109.0
+uvicorn>=0.27.0
+httpx>=0.26.0
+
+# Telegram server
+telethon>=1.34.0
+
+# GitHub server - uses httpx (already listed above)
+
+# Weather server - uses httpx (already listed above)

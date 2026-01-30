@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  # Android build environment with emulator support
+  android-builder:
+    build:
+      context: ./android-builder
+      dockerfile: Dockerfile
+    image: android-builder:latest
+    container_name: android_builder
+    privileged: true  # Required for KVM access
+    devices:
+      # KVM for hardware acceleration (Linux only)
+      - /dev/kvm:/dev/kvm
+    volumes:
+      # Mount workspace for project files
+      - ./workspace:/home/android/workspace
+      # Cache Gradle dependencies
+      - gradle-cache:/home/android/.gradle
+      # Persist AVD data
+      - avd-data:/home/android/.android
+    environment:
+      - ANDROID_HOME=/home/android/sdk
+      - ANDROID_SDK_ROOT=/home/android/sdk
+      - GRADLE_USER_HOME=/home/android/.gradle
+      - ANDROID_AVD_HOME=/home/android/.android/avd
+      # Emulator settings for better performance
+      - ANDROID_EMULATOR_USE_SYSTEM_LIBS=1
+      - QT_QPA_PLATFORM=offscreen
+    working_dir: /home/android/workspace
+    # Allocate more resources for emulator
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+    shm_size: '2gb'  # Shared memory for emulator
+    command: tail -f /dev/null  # Keep container running
+    restart: unless-stopped
+
+volumes:
+  # Persistent volume for Gradle cache
+  gradle-cache:
+    driver: local
+  # Persistent volume for AVD data
+  avd-data:
+    driver: local
