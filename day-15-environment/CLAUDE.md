@@ -100,6 +100,21 @@ GigaChat Multiplatform Chat Application - a cross-platform AI chat app built wit
 - **Session Linking**: Reminders can be linked to specific chat sessions for context preservation
 - **Two-Level Tool System**: Local tools (in-app execution) + MCP tools (external servers) work seamlessly together
 
+**New Feature (day-15)**: Docker & ADB Environment Integration:
+- **Docker MCP Server** (Port 8006): Complete container management via AI
+  - Container lifecycle: list, start, stop, remove, logs, inspect, execute commands
+  - Image management: list, pull, remove
+  - System info and resource monitoring
+  - 11 tools for autonomous Docker operations
+- **ADB MCP Server** (Port 8007): Android device/emulator control via AI
+  - Device management: list devices, list AVDs, device info
+  - Emulator control: start/stop emulator, dismiss ANR dialogs
+  - App lifecycle: build APK, install APK, launch app, get app logs
+  - Utilities: screenshot, execute ADB commands, restart ADB server
+  - 14 tools for complete Android development workflow
+- **Build Environment**: Docker-based Android build support with android-builder image
+- **VPS Deployment**: Full documentation for remote server deployment
+
 **New Feature (day-11)**: MCP (Model Context Protocol) Server Integration:
 - **External Tool Integration**: Connect AI to external tools and data sources via MCP protocol
 - **Multiple Transport Types**: Support for local (stdio) and remote (HTTP/SSE) MCP servers
@@ -121,6 +136,31 @@ GigaChat Multiplatform Chat Application - a cross-platform AI chat app built wit
 - `ReminderState`: UI state (activeConfig, lastSummary, lastSummaryChannel, error)
 - `ReminderIntent`: User actions (Start, Stop, UpdateConfig, Activate)
 - `MessageType.REMINDER`: New message type for displaying channel summaries in chat UI
+
+**Docker MCP Server Components (NEW in day-15)**:
+- `mcp-servers/docker/main.py`: Server entry point with FastAPI/SSE endpoints
+- `mcp-servers/docker/docker_client.py`: Docker Python SDK wrapper (~400 lines)
+- `mcp-servers/docker/tools.py`: 11 tool definitions with few-shot examples
+- `mcp-servers/docker/config.py`: Server configuration (port 8006)
+- `mcp-servers/docker/android-builder/Dockerfile`: Android SDK + Gradle image
+
+**ADB MCP Server Components (NEW in day-15)**:
+- `mcp-servers/adb/main.py`: Server entry point (~150 lines)
+- `mcp-servers/adb/adb_client.py`: ADB subprocess wrapper (~500 lines)
+- `mcp-servers/adb/tools.py`: 14 tool definitions with positive/negative examples
+- `mcp-servers/adb/config.py`: ADB path configuration
+
+**MCP Server Ports (UPDATED in day-15)**:
+| Port | Server | Description |
+|------|--------|-------------|
+| 8000 | GitHub | Repository, PR, issue management |
+| 8001 | Telegram | Channel messages, bot interactions |
+| 8002 | Weather | Current weather, forecasts |
+| 8003 | TimeService | Time zones, conversions |
+| 8004 | Currency | Exchange rates |
+| 8005 | FileOps | File read/write operations |
+| 8006 | Docker | Container & image management **(NEW)** |
+| 8007 | ADB | Android device/emulator control **(NEW)** |
 
 **MCP Components**:
 - `McpServer`, `McpTool`, `McpToolResult` domain models
@@ -208,6 +248,28 @@ adb shell am start -n ru.chtcholeg.app/.MainActivity
 
 # Check dependencies
 ./gradlew :composeApp:dependencies
+```
+
+### MCP Servers (NEW in day-15)
+```bash
+# Install MCP server dependencies
+cd mcp-servers
+pip install -e ".[all]"
+
+# Start all servers
+python launcher.py all --no-auth
+
+# Start individual servers
+python launcher.py docker --no-auth  # Port 8006
+python launcher.py adb --no-auth     # Port 8007
+python launcher.py github --no-auth  # Port 8000
+python launcher.py telegram --no-auth # Port 8001
+
+# Test Docker server
+curl http://localhost:8006/tools
+
+# Test ADB server
+curl http://localhost:8007/tools
 ```
 
 ## Credentials Configuration
@@ -363,6 +425,10 @@ The app supports multiple AI providers (GigaChat, Hugging Face) through:
 | **Local Tool Handler** | `data/tool/LocalToolHandler.kt` **(NEW in day-13)**                                                           |
 | **Reminder SQL Schema** | `sqldelight/ru/chtcholeg/app/data/local/Reminder.sq` **(NEW in day-13)**                                     |
 | **Telegram MCP Server** | `TelegramMCPServer/` directory **(UPDATED in day-13)**                                                        |
+| **Docker MCP Server** | `mcp-servers/docker/` directory **(NEW in day-15)**                                                           |
+| **ADB MCP Server** | `mcp-servers/adb/` directory **(NEW in day-15)**                                                              |
+| **MCP Launcher** | `mcp-servers/launcher.py` **(UPDATED in day-15)**                                                             |
+| **Docker Build Env** | `mcp-servers/docker/android-builder/Dockerfile` **(NEW in day-15)**                                           |
 
 ## Development Guidelines
 
@@ -500,6 +566,85 @@ ReminderEntity
 - Tool execution routed by name: local tools → LocalToolHandler, MCP tools → McpRepository
 - Reminder system uses MCP tool `get_channel_messages` from TelegramMCPServer for data fetching
 
+### Docker MCP Server (NEW in day-15)
+
+AI-controlled Docker container and image management.
+
+**Tools (11 total)**:
+| Tool | Description |
+|------|-------------|
+| `list_containers` | List running/all containers |
+| `start_container` | Start stopped container |
+| `stop_container` | Stop running container |
+| `remove_container` | Remove container |
+| `get_container_logs` | Get container logs (tail, timestamps) |
+| `inspect_container` | Detailed container info |
+| `list_images` | List all Docker images |
+| `pull_image` | Pull image from registry |
+| `remove_image` | Remove image |
+| `execute_command` | Run command inside container |
+| `get_system_info` | Docker system information |
+
+**Usage Example**:
+```
+User: "Покажи запущенные контейнеры"
+AI → list_containers(all=False)
+
+User: "Запусти PostgreSQL на порту 5432"
+AI → pull_image(image="postgres") → start_container(...)
+```
+
+**Starting the Server**:
+```bash
+cd mcp-servers
+pip install -e ".[all]"
+python launcher.py docker --no-auth  # Port 8006
+```
+
+### ADB MCP Server (NEW in day-15)
+
+AI-controlled Android device and emulator management.
+
+**Tools (14 total)**:
+| Tool | Description |
+|------|-------------|
+| `restart_adb_server` | Fix ADB connection issues |
+| `list_devices` | Show connected devices/emulators |
+| `list_avds` | Show available AVDs to start |
+| `start_emulator` | Launch emulator by AVD name |
+| `stop_emulator` | Stop running emulator |
+| `install_apk` | Install APK file (returns package name) |
+| `screenshot` | Capture device screen (PNG + base64) |
+| `execute_adb` | Run arbitrary ADB command |
+| `get_device_info` | Device model, Android version, battery |
+| `build_apk` | Build APK via Gradle |
+| `launch_app` | Start installed app by package |
+| `dismiss_dialogs` | Close ANR/crash dialogs |
+| `get_app_logs` | Get logcat filtered by package |
+
+**Complete Build & Deploy Workflow**:
+```
+User: "Собери и установи приложение"
+AI:
+1. list_avds() → получить имя AVD
+2. start_emulator(avd_name="pixel6_api34") → запустить эмулятор
+3. build_apk(project_path="/path/to/project") → собрать APK
+4. install_apk(apk_path="...app-debug.apk") → установить (получить package)
+5. launch_app(package="ru.chtcholeg.app") → запустить
+6. screenshot() → проверить UI
+```
+
+**Starting the Server**:
+```bash
+cd mcp-servers
+python launcher.py adb --no-auth  # Port 8007
+```
+
+**Requirements**:
+- Android SDK with ADB in PATH
+- Emulator images (AVDs) created via Android Studio
+- Java for Gradle builds
+
 ### Response Metadata Display (NEW in day-07)
 
 The application displays execution time and token usage for each AI response:
@@ -567,6 +712,35 @@ ClipboardManager.copyToClipboard("Text to copy")
 2. Check SQL syntax in `.sq` files
 3. For schema migrations, consider adding migration queries or clearing app data during development
 4. Desktop: Delete `~/.ai-chat/chat.db` to reset database
+
+### Docker MCP Server Issues (NEW in day-15)
+**Symptom**: Docker tools return "Docker not available"
+**Fix**:
+1. Ensure Docker Desktop is running
+2. Check Docker socket: `docker ps` should work from terminal
+3. On macOS: Docker Desktop must be started first
+
+**Symptom**: Permission denied on Docker operations
+**Fix**: Add user to docker group: `sudo usermod -aG docker $USER` (Linux)
+
+### ADB MCP Server Issues (NEW in day-15)
+**Symptom**: "no devices/emulators found"
+**Fix**:
+1. Run `restart_adb_server` tool
+2. Check ADB in PATH: `adb devices` should work
+3. Ensure Android SDK is installed (via Android Studio)
+
+**Symptom**: Emulator fails to start
+**Fix**:
+1. Use `list_avds` to get exact AVD name
+2. Ensure sufficient RAM for emulator (8GB+ recommended)
+3. Check AVD exists in Android Studio AVD Manager
+
+**Symptom**: Build APK fails
+**Fix**:
+1. Ensure `gradlew` has execute permissions: `chmod +x gradlew`
+2. Use full path for project_path (not relative or ~/...)
+3. Check JAVA_HOME is set correctly
 
 ## Configuration Locations
 

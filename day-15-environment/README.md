@@ -1106,4 +1106,4 @@ This project includes comprehensive documentation:
 
 ## Videos
 
-- https://disk.yandex.ru/i/i-r2_4sKdKfjbg
+- https://disk.yandex.ru/i/uTGzfVsE1mDCbg
