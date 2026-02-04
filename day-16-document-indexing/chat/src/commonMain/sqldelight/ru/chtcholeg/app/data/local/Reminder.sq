@@ -1,0 +1,44 @@
+CREATE TABLE ReminderEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    channel TEXT NOT NULL,
+    intervalSeconds INTEGER NOT NULL DEFAULT 30,
+    messageCount INTEGER NOT NULL DEFAULT 10,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    sessionId TEXT,
+    createdAt INTEGER NOT NULL,
+    lastTriggeredAt INTEGER,
+    lastSeenMessageId TEXT
+);
+
+-- Get the single active reminder (at most one)
+selectActive:
+SELECT * FROM ReminderEntity
+WHERE enabled = 1
+LIMIT 1;
+
+-- Get reminder linked to a specific session
+selectBySessionId:
+SELECT * FROM ReminderEntity
+WHERE sessionId = ?;
+
+-- Insert or replace reminder (uses INSERT OR REPLACE for SQLite 3.18 compatibility)
+upsert:
+INSERT OR REPLACE INTO ReminderEntity(id, channel, intervalSeconds, messageCount, enabled, sessionId, createdAt, lastTriggeredAt, lastSeenMessageId)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- Update last seen state after successful tick
+updateLastSeen:
+UPDATE ReminderEntity
+SET lastSeenMessageId = ?, lastTriggeredAt = ?
+WHERE id = ?;
+
+-- Disable reminder without deleting
+disable:
+UPDATE ReminderEntity
+SET enabled = 0
+WHERE id = ?;
+
+-- Delete reminder by id
+deleteById:
+DELETE FROM ReminderEntity
+WHERE id = ?;
