@@ -1,0 +1,46 @@
+-- IndexedChunkEntity table — schema-compatible with indexer/ GUI
+CREATE TABLE IndexedChunkEntity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fileId INTEGER NOT NULL,
+    chunkIndex INTEGER NOT NULL,
+    totalChunks INTEGER NOT NULL,
+    text TEXT NOT NULL,
+    embedding TEXT NOT NULL,
+    createdAt INTEGER NOT NULL,
+    FOREIGN KEY (fileId) REFERENCES IndexedFileEntity(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_indexed_chunk_file_id ON IndexedChunkEntity(fileId);
+
+-- Insert new chunk
+insert:
+INSERT INTO IndexedChunkEntity(fileId, chunkIndex, totalChunks, text, embedding, createdAt)
+VALUES (?, ?, ?, ?, ?, ?);
+
+-- Select all chunks joined with file info (used for search and getAllChunks)
+selectAllWithFileInfo:
+SELECT
+    c.id AS chunkId,
+    c.fileId,
+    c.chunkIndex,
+    c.totalChunks,
+    c.text,
+    c.embedding,
+    c.createdAt,
+    f.fileName,
+    f.filePath
+FROM IndexedChunkEntity c
+INNER JOIN IndexedFileEntity f ON c.fileId = f.id
+ORDER BY f.fileName, c.chunkIndex;
+
+-- Count total chunks
+countChunks:
+SELECT COUNT(*) FROM IndexedChunkEntity;
+
+-- Get most recent createdAt timestamp
+maxCreatedAt:
+SELECT MAX(createdAt) FROM IndexedChunkEntity;
+
+-- Delete all chunks
+deleteAll:
+DELETE FROM IndexedChunkEntity;

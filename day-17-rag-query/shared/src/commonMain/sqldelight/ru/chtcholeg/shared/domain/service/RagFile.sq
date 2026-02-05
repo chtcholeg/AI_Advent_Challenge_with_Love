@@ -1,0 +1,31 @@
+-- IndexedFileEntity table — schema-compatible with indexer/ GUI
+CREATE TABLE IndexedFileEntity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fileName TEXT NOT NULL,
+    filePath TEXT NOT NULL UNIQUE,
+    checksum TEXT NOT NULL,
+    fileSize INTEGER NOT NULL,
+    chunkCount INTEGER NOT NULL DEFAULT 0,
+    indexedAt INTEGER NOT NULL,
+    lastModified INTEGER NOT NULL
+);
+
+CREATE INDEX idx_indexed_file_path ON IndexedFileEntity(filePath);
+CREATE INDEX idx_indexed_file_checksum ON IndexedFileEntity(checksum);
+
+-- Insert new file record
+insert:
+INSERT INTO IndexedFileEntity(fileName, filePath, checksum, fileSize, chunkCount, indexedAt, lastModified)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+-- Get last inserted row id
+lastInsertRowId:
+SELECT last_insert_rowid();
+
+-- Count total files
+countFiles:
+SELECT COUNT(*) FROM IndexedFileEntity;
+
+-- Delete all files
+deleteAll:
+DELETE FROM IndexedFileEntity;
