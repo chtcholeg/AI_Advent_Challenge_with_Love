@@ -1,0 +1,74 @@
+CREATE TABLE ChatMessageEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    sessionId TEXT NOT NULL,
+    content TEXT NOT NULL,
+    isFromUser INTEGER NOT NULL,
+    timestamp INTEGER NOT NULL,
+    messageType TEXT NOT NULL,
+    executionTimeMs INTEGER,
+    promptTokens INTEGER,
+    completionTokens INTEGER,
+    totalTokens INTEGER,
+    isSummary INTEGER NOT NULL DEFAULT 0,
+    compressedMessageCount INTEGER,
+    FOREIGN KEY (sessionId) REFERENCES ChatSessionEntity(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_messages_session ON ChatMessageEntity(sessionId);
+CREATE INDEX idx_messages_timestamp ON ChatMessageEntity(timestamp);
+
+-- Get all messages for a session
+selectBySessionId:
+SELECT * FROM ChatMessageEntity
+WHERE sessionId = ?
+ORDER BY timestamp ASC;
+
+-- Get last message of a session (for preview)
+selectLastBySessionId:
+SELECT * FROM ChatMessageEntity
+WHERE sessionId = ?
+ORDER BY timestamp DESC
+LIMIT 1;
+
+-- Get message count in a session
+countBySessionId:
+SELECT COUNT(*) FROM ChatMessageEntity
+WHERE sessionId = ?;
+
+-- Insert message
+insert:
+INSERT INTO ChatMessageEntity(
+    id, sessionId, content, isFromUser, timestamp,
+    messageType, executionTimeMs, promptTokens, completionTokens, totalTokens,
+    isSummary, compressedMessageCount
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- Delete message
+deleteById:
+DELETE FROM ChatMessageEntity
+WHERE id = ?;
+
+-- Delete all messages in a session
+deleteBySessionId:
+DELETE FROM ChatMessageEntity
+WHERE sessionId = ?;
+
+-- Search by message content (returns sessions)
+searchByContent:
+SELECT DISTINCT s.* FROM ChatSessionEntity s
+INNER JOIN ChatMessageEntity m ON s.id = m.sessionId
+WHERE m.content LIKE '%' || ? || '%'
+ORDER BY s.updatedAt DESC;
+
+-- Get messages before compression point
+selectBeforeCompressionPoint:
+SELECT * FROM ChatMessageEntity
+WHERE sessionId = ? AND timestamp < ?
+ORDER BY timestamp ASC;
+
+-- Get messages after compression point
+selectAfterCompressionPoint:
+SELECT * FROM ChatMessageEntity
+WHERE sessionId = ? AND timestamp >= ?
+ORDER BY timestamp ASC;
