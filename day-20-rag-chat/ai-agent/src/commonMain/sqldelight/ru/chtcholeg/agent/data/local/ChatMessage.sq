@@ -1,0 +1,52 @@
+CREATE TABLE ChatMessageEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    sessionId TEXT NOT NULL DEFAULT '',
+    content TEXT NOT NULL,
+    type TEXT NOT NULL,
+    timestamp INTEGER NOT NULL,
+    executionTimeMs INTEGER,
+    promptTokens INTEGER,
+    completionTokens INTEGER,
+    totalTokens INTEGER,
+    sourcesJson TEXT
+);
+
+CREATE INDEX idx_chat_message_timestamp ON ChatMessageEntity(timestamp);
+CREATE INDEX idx_chat_message_session ON ChatMessageEntity(sessionId);
+
+-- Get all messages ordered by timestamp
+selectAll:
+SELECT * FROM ChatMessageEntity
+ORDER BY timestamp ASC;
+
+-- Get messages by session ID ordered by timestamp
+selectBySessionId:
+SELECT * FROM ChatMessageEntity
+WHERE sessionId = ?
+ORDER BY timestamp ASC;
+
+-- Insert a message
+insert:
+INSERT OR REPLACE INTO ChatMessageEntity(id, sessionId, content, type, timestamp, executionTimeMs, promptTokens, completionTokens, totalTokens, sourcesJson)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- Delete all messages (clear chat) - kept for backward compatibility
+deleteAll:
+DELETE FROM ChatMessageEntity;
+
+-- Delete messages by session ID
+deleteBySessionId:
+DELETE FROM ChatMessageEntity
+WHERE sessionId = ?;
+
+-- Count messages by session ID
+countBySessionId:
+SELECT COUNT(*) FROM ChatMessageEntity
+WHERE sessionId = ?;
+
+-- Get last message in a session
+selectLastBySessionId:
+SELECT * FROM ChatMessageEntity
+WHERE sessionId = ?
+ORDER BY timestamp DESC
+LIMIT 1;
