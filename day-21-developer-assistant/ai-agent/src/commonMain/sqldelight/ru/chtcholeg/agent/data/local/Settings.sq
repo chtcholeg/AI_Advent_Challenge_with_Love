@@ -1,0 +1,19 @@
+CREATE TABLE SettingsEntity (
+    key TEXT NOT NULL PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+selectAll:
+SELECT * FROM SettingsEntity;
+
+selectByKey:
+SELECT value FROM SettingsEntity
+WHERE key = ?;
+
+upsert:
+INSERT OR REPLACE INTO SettingsEntity(key, value)
+VALUES (?, ?);
+
+deleteByKey:
+DELETE FROM SettingsEntity
+WHERE key = ?;

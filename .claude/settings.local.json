@@ -12,7 +12,8 @@
       "WebSearch",
       "Bash(chmod:*)",
       "Bash(python launcher.py:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(git -C /Users/shchepilov/AndroidStudioProjects/AI_Advent_Challenge_with_Love log --oneline --all)"
     ]
   }
 }

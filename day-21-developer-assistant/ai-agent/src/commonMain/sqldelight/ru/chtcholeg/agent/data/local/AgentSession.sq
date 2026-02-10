@@ -1,0 +1,40 @@
+CREATE TABLE AgentSessionEntity (
+    id TEXT NOT NULL PRIMARY KEY,
+    title TEXT NOT NULL,
+    createdAt INTEGER NOT NULL,
+    updatedAt INTEGER NOT NULL
+);
+
+CREATE INDEX idx_agent_session_updated ON AgentSessionEntity(updatedAt);
+
+-- Get all sessions ordered by most recent
+selectAll:
+SELECT * FROM AgentSessionEntity
+ORDER BY updatedAt DESC;
+
+-- Get session by ID
+selectById:
+SELECT * FROM AgentSessionEntity
+WHERE id = ?;
+
+-- Insert a session
+insert:
+INSERT OR REPLACE INTO AgentSessionEntity(id, title, createdAt, updatedAt)
+VALUES (?, ?, ?, ?);
+
+-- Update session title
+updateTitle:
+UPDATE AgentSessionEntity
+SET title = ?, updatedAt = ?
+WHERE id = ?;
+
+-- Update session timestamp
+updateTimestamp:
+UPDATE AgentSessionEntity
+SET updatedAt = ?
+WHERE id = ?;
+
+-- Delete session by ID
+deleteById:
+DELETE FROM AgentSessionEntity
+WHERE id = ?;
