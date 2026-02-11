@@ -1,0 +1,59 @@
+-- IndexedChunk table for storing document chunks with embeddings
+CREATE TABLE IndexedChunkEntity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fileId INTEGER NOT NULL,
+    chunkIndex INTEGER NOT NULL,
+    totalChunks INTEGER NOT NULL,
+    text TEXT NOT NULL,
+    embedding TEXT NOT NULL,
+    createdAt INTEGER NOT NULL,
+    FOREIGN KEY (fileId) REFERENCES IndexedFileEntity(id) ON DELETE CASCADE
+);
+
+-- Index for efficient file lookup
+CREATE INDEX idx_indexed_chunk_file_id ON IndexedChunkEntity(fileId);
+
+-- Select all chunks
+selectAll:
+SELECT * FROM IndexedChunkEntity ORDER BY fileId, chunkIndex;
+
+-- Select chunks by file ID
+selectByFileId:
+SELECT * FROM IndexedChunkEntity WHERE fileId = ? ORDER BY chunkIndex;
+
+-- Select chunk by ID
+selectById:
+SELECT * FROM IndexedChunkEntity WHERE id = ?;
+
+-- Insert new chunk
+insert:
+INSERT INTO IndexedChunkEntity(fileId, chunkIndex, totalChunks, text, embedding, createdAt)
+VALUES (?, ?, ?, ?, ?, ?);
+
+-- Delete chunks by file ID
+deleteByFileId:
+DELETE FROM IndexedChunkEntity WHERE fileId = ?;
+
+-- Count chunks
+countChunks:
+SELECT COUNT(*) FROM IndexedChunkEntity;
+
+-- Count chunks by file ID
+countChunksByFileId:
+SELECT COUNT(*) FROM IndexedChunkEntity WHERE fileId = ?;
+
+-- Select all chunks with file info for search (join)
+selectAllWithFileInfo:
+SELECT
+    c.id AS chunkId,
+    c.fileId,
+    c.chunkIndex,
+    c.totalChunks,
+    c.text,
+    c.embedding,
+    c.createdAt,
+    f.fileName,
+    f.filePath
+FROM IndexedChunkEntity c
+INNER JOIN IndexedFileEntity f ON c.fileId = f.id
+ORDER BY f.fileName, c.chunkIndex;

@@ -410,6 +410,204 @@ class GitClient:
             "output": stdout + stderr,  # Git outputs to stderr for push
         }
 
+    async def _get_github_owner_repo(self) -> tuple[str, str]:
+        """Parse owner/repo from git remote origin URL.
+
+        Returns:
+            Tuple of (owner, repo).
+
+        Raises:
+            RuntimeError: If unable to parse remote URL.
+        """
+        stdout, stderr, code = await self._run_command("remote", "get-url", "origin")
+        if code != 0:
+            raise RuntimeError(f"Failed to get remote URL: {stderr}")
+
+        url = stdout.strip()
+        # Handle SSH: git@github.com:owner/repo.git
+        if url.startswith("git@"):
+            path = url.split(":", 1)[1]
+        # Handle HTTPS: https://github.com/owner/repo.git
+        elif "github.com" in url:
+            path = url.split("github.com/", 1)[1]
+        else:
+            raise RuntimeError(f"Cannot parse GitHub owner/repo from remote URL: {url}")
+
+        path = path.removesuffix(".git")
+        parts = path.split("/")
+        if len(parts) < 2:
+            raise RuntimeError(f"Cannot parse GitHub owner/repo from path: {path}")
+
+        return parts[0], parts[1]
+
+    async def github_pr_list(self, state: str = "open", limit: int = 10) -> dict:
+        """List pull requests for the repository.
+
+        Args:
+            state: Filter by state (open, closed, all).
+            limit: Maximum number of PRs to return.
+
+        Returns:
+            Dictionary with PR list.
+        """
+        if not self.github_token:
+            raise ValueError("GitHub token is not configured")
+
+        owner, repo = await self._get_github_owner_repo()
+
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"https://api.github.com/repos/{owner}/{repo}/pulls",
+                params={"state": state, "per_page": min(limit, 100)},
+                headers={
+                    "Authorization": f"Bearer {self.github_token}",
+                    "Accept": "application/vnd.github+json",
+                },
+                timeout=15.0,
+            )
+
+        if resp.status_code != 200:
+            raise RuntimeError(f"GitHub API returned {resp.status_code}: {resp.text}")
+
+        prs = resp.json()
+        return {
+            "pull_requests": [
+                {
+                    "number": pr["number"],
+                    "title": pr["title"],
+                    "state": pr["state"],
+                    "author": pr["user"]["login"],
+                    "created_at": pr["created_at"],
+                    "updated_at": pr["updated_at"],
+                    "head": pr["head"]["ref"],
+                    "base": pr["base"]["ref"],
+                }
+                for pr in prs
+            ],
+            "total": len(prs),
+        }
+
+    async def github_pr_get(self, pr_number: int) -> dict:
+        """Get details of a specific pull request.
+
+        Args:
+            pr_number: PR number.
+
+        Returns:
+            Dictionary with PR details.
+        """
+        if not self.github_token:
+            raise ValueError("GitHub token is not configured")
+
+        owner, repo = await self._get_github_owner_repo()
+
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}",
+                headers={
+                    "Authorization": f"Bearer {self.github_token}",
+                    "Accept": "application/vnd.github+json",
+                },
+                timeout=15.0,
+            )
+
+        if resp.status_code != 200:
+            raise RuntimeError(f"GitHub API returned {resp.status_code}: {resp.text}")
+
+        pr = resp.json()
+        return {
+            "number": pr["number"],
+            "title": pr["title"],
+            "body": pr.get("body") or "",
+            "state": pr["state"],
+            "author": pr["user"]["login"],
+            "labels": [l["name"] for l in pr.get("labels", [])],
+            "created_at": pr["created_at"],
+            "updated_at": pr["updated_at"],
+            "merged": pr.get("merged", False),
+            "mergeable": pr.get("mergeable"),
+            "head": pr["head"]["ref"],
+            "base": pr["base"]["ref"],
+            "additions": pr.get("additions", 0),
+            "deletions": pr.get("deletions", 0),
+            "changed_files": pr.get("changed_files", 0),
+        }
+
+    async def github_pr_diff(self, pr_number: int) -> dict:
+        """Get the diff of a pull request.
+
+        Args:
+            pr_number: PR number.
+
+        Returns:
+            Dictionary with PR diff text.
+        """
+        if not self.github_token:
+            raise ValueError("GitHub token is not configured")
+
+        owner, repo = await self._get_github_owner_repo()
+
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}",
+                headers={
+                    "Authorization": f"Bearer {self.github_token}",
+                    "Accept": "application/vnd.github.v3.diff",
+                },
+                timeout=30.0,
+            )
+
+        if resp.status_code != 200:
+            raise RuntimeError(f"GitHub API returned {resp.status_code}: {resp.text}")
+
+        return {
+            "diff": resp.text,
+            "pr_number": pr_number,
+        }
+
+    async def github_pr_files(self, pr_number: int) -> dict:
+        """List files changed in a pull request.
+
+        Args:
+            pr_number: PR number.
+
+        Returns:
+            Dictionary with changed files list.
+        """
+        if not self.github_token:
+            raise ValueError("GitHub token is not configured")
+
+        owner, repo = await self._get_github_owner_repo()
+
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/files",
+                params={"per_page": 100},
+                headers={
+                    "Authorization": f"Bearer {self.github_token}",
+                    "Accept": "application/vnd.github+json",
+                },
+                timeout=15.0,
+            )
+
+        if resp.status_code != 200:
+            raise RuntimeError(f"GitHub API returned {resp.status_code}: {resp.text}")
+
+        files = resp.json()
+        return {
+            "files": [
+                {
+                    "filename": f["filename"],
+                    "status": f["status"],
+                    "additions": f["additions"],
+                    "deletions": f["deletions"],
+                    "changes": f["changes"],
+                }
+                for f in files
+            ],
+            "total": len(files),
+        }
+
     async def github_user_info(self) -> dict:
         """Fetch authenticated GitHub user info using the configured token.
 

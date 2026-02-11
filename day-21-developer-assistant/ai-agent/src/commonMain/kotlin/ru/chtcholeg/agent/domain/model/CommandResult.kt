@@ -13,7 +13,11 @@ sealed class CommandResult {
      * Command produced context that needs additional LLM processing.
      * The [context] is sent as system context, and [query] is the user's question.
      */
-    data class NeedsLlmProcessing(val context: String, val query: String) : CommandResult()
+    data class NeedsLlmProcessing(
+        val context: String,
+        val query: String,
+        val enableTools: Boolean = false
+    ) : CommandResult()
 
     /**
      * Command failed with an error message.

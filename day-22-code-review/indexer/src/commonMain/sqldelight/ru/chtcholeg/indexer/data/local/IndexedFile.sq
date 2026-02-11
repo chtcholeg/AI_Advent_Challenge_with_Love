@@ -1,0 +1,58 @@
+-- IndexedFile table for storing file metadata
+CREATE TABLE IndexedFileEntity (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fileName TEXT NOT NULL,
+    filePath TEXT NOT NULL UNIQUE,
+    checksum TEXT NOT NULL,
+    fileSize INTEGER NOT NULL,
+    chunkCount INTEGER NOT NULL DEFAULT 0,
+    indexedAt INTEGER NOT NULL,
+    lastModified INTEGER NOT NULL
+);
+
+-- Indexes for efficient lookups
+CREATE INDEX idx_indexed_file_path ON IndexedFileEntity(filePath);
+CREATE INDEX idx_indexed_file_checksum ON IndexedFileEntity(checksum);
+
+-- Select all files
+selectAll:
+SELECT * FROM IndexedFileEntity ORDER BY indexedAt DESC;
+
+-- Select file by path
+selectByPath:
+SELECT * FROM IndexedFileEntity WHERE filePath = ?;
+
+-- Select file by checksum
+selectByChecksum:
+SELECT * FROM IndexedFileEntity WHERE checksum = ?;
+
+-- Select file by ID
+selectById:
+SELECT * FROM IndexedFileEntity WHERE id = ?;
+
+-- Insert new file
+insert:
+INSERT INTO IndexedFileEntity(fileName, filePath, checksum, fileSize, chunkCount, indexedAt, lastModified)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+-- Get last inserted ID
+lastInsertRowId:
+SELECT last_insert_rowid();
+
+-- Update file
+update:
+UPDATE IndexedFileEntity
+SET fileName = ?, checksum = ?, fileSize = ?, chunkCount = ?, indexedAt = ?, lastModified = ?
+WHERE id = ?;
+
+-- Delete file by ID
+deleteById:
+DELETE FROM IndexedFileEntity WHERE id = ?;
+
+-- Delete file by path
+deleteByPath:
+DELETE FROM IndexedFileEntity WHERE filePath = ?;
+
+-- Count files
+countFiles:
+SELECT COUNT(*) FROM IndexedFileEntity;

@@ -106,6 +106,7 @@ class CommandHandler(
 
         return when (command) {
             "help" -> handleHelpCommand(args)
+            "review-pr", "review" -> handleReviewPrCommand(args)
             else -> CommandResult.Error("Unknown command: /$command. Type /help for available commands.")
         }
     }
@@ -125,6 +126,7 @@ class CommandHandler(
                 args
             } else {
                 "Опиши структуру проекта: модули, их назначение, ключевые возможности и команды для сборки/запуска. " +
+                    "Также упомяни доступные команды: /help [тема] — справка по проекту, /review-pr [номер|ветка] — code review. " +
                     "Ответ дай компактно и структурированно."
             }
 
@@ -165,6 +167,83 @@ class CommandHandler(
             )
         } catch (e: Exception) {
             CommandResult.Error("Failed to read project information: ${e.message}")
+        }
+    }
+
+    /**
+     * Handle /review-pr command — performs code review using MCP tools.
+     * Supports: PR number, branch name, or empty (current changes).
+     */
+    private suspend fun handleReviewPrCommand(args: String?): CommandResult {
+        return try {
+            // Load CLAUDE.md as project context
+            val projectContext = projectRootProvider.readClaudeMdFile()
+
+            // Build review instructions
+            val reviewInstructions = buildString {
+                appendLine("# Code Review Instructions")
+                appendLine()
+                appendLine("Проведи детальное code review. Проверь следующие аспекты:")
+                appendLine("1. **Архитектура** — соответствие паттернам проекта (MVI, слои, модули)")
+                appendLine("2. **Баги** — потенциальные ошибки, NPE, race conditions, утечки ресурсов")
+                appendLine("3. **Стиль кода** — именование, форматирование, идиоматичность Kotlin/Python")
+                appendLine("4. **Безопасность** — инъекции, утечки секретов, небезопасные операции")
+                appendLine("5. **Именование** — понятные имена переменных, функций, классов")
+                appendLine("6. **Тесты** — покрытие тестами, пропущенные edge cases")
+                appendLine("7. **Производительность** — неэффективные алгоритмы, лишние аллокации")
+                appendLine()
+                appendLine("Формат ответа:")
+                appendLine("- Краткое резюме изменений")
+                appendLine("- Список найденных проблем с указанием файла и строки")
+                appendLine("- Рекомендации по улучшению")
+                appendLine("- Общая оценка: ✅ Approve / ⚠️ Request Changes / ❌ Reject")
+            }
+
+            // Build context: review instructions + project documentation
+            val context = buildString {
+                appendLine(reviewInstructions)
+                if (projectContext != null) {
+                    appendLine()
+                    appendLine("# Project Documentation")
+                    appendLine()
+                    val budgetForDocs = MAX_CONTEXT_CHARS - reviewInstructions.length
+                    if (projectContext.length <= budgetForDocs) {
+                        appendLine(projectContext)
+                    } else {
+                        appendLine(projectContext.take(budgetForDocs))
+                        appendLine("// ... (project docs truncated)")
+                    }
+                }
+            }
+
+            // Build query based on args
+            val trimmedArgs = args?.trim()
+            val query = when {
+                // PR number
+                trimmedArgs != null && trimmedArgs.matches(Regex("^\\d+$")) -> {
+                    val prNumber = trimmedArgs
+                    "Проведи code review для Pull Request #$prNumber. " +
+                        "Используй инструменты github_pr_get, github_pr_diff и github_pr_files для получения данных о PR."
+                }
+                // Branch name
+                !trimmedArgs.isNullOrBlank() -> {
+                    "Проведи code review изменений ветки '$trimmedArgs'. " +
+                        "Используй инструменты git_diff и git_log для получения изменений ветки."
+                }
+                // No args — current changes
+                else -> {
+                    "Проведи code review текущих изменений в рабочей директории. " +
+                        "Используй инструменты git_status и git_diff для получения текущих изменений."
+                }
+            }
+
+            CommandResult.NeedsLlmProcessing(
+                context = context,
+                query = query,
+                enableTools = true
+            )
+        } catch (e: Exception) {
+            CommandResult.Error("Failed to prepare code review: ${e.message}")
         }
     }
 

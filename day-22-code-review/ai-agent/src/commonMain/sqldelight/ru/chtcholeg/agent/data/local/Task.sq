@@ -1,0 +1,66 @@
+CREATE TABLE IF NOT EXISTS Task (
+    id TEXT PRIMARY KEY NOT NULL,
+    subject TEXT NOT NULL,
+    description TEXT NOT NULL,
+    activeForm TEXT,
+    status TEXT NOT NULL DEFAULT 'PENDING',
+    owner TEXT,
+    blocks TEXT NOT NULL DEFAULT '',  -- Comma-separated task IDs
+    blockedBy TEXT NOT NULL DEFAULT '',  -- Comma-separated task IDs
+    metadata TEXT NOT NULL DEFAULT '{}',  -- JSON string
+    createdAt INTEGER NOT NULL,
+    updatedAt INTEGER NOT NULL,
+    completedAt INTEGER
+);
+
+-- Get all tasks
+getAllTasks:
+SELECT * FROM Task WHERE status != 'DELETED' ORDER BY createdAt ASC;
+
+-- Get task by ID
+getTaskById:
+SELECT * FROM Task WHERE id = ? AND status != 'DELETED';
+
+-- Get pending tasks (available to claim)
+getPendingTasks:
+SELECT * FROM Task WHERE status = 'PENDING' AND owner IS NULL AND status != 'DELETED' ORDER BY createdAt ASC;
+
+-- Get tasks by status
+getTasksByStatus:
+SELECT * FROM Task WHERE status = ? AND status != 'DELETED' ORDER BY createdAt ASC;
+
+-- Get tasks by owner
+getTasksByOwner:
+SELECT * FROM Task WHERE owner = ? AND status != 'DELETED' ORDER BY createdAt ASC;
+
+-- Insert task
+insertTask:
+INSERT INTO Task (id, subject, description, activeForm, status, owner, blocks, blockedBy, metadata, createdAt, updatedAt, completedAt)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- Update task
+updateTask:
+UPDATE Task
+SET subject = ?,
+    description = ?,
+    activeForm = ?,
+    status = ?,
+    owner = ?,
+    blocks = ?,
+    blockedBy = ?,
+    metadata = ?,
+    updatedAt = ?,
+    completedAt = ?
+WHERE id = ?;
+
+-- Delete task (soft delete)
+deleteTask:
+UPDATE Task SET status = 'DELETED', updatedAt = ? WHERE id = ?;
+
+-- Hard delete task
+hardDeleteTask:
+DELETE FROM Task WHERE id = ?;
+
+-- Clear all tasks
+clearAllTasks:
+DELETE FROM Task;
