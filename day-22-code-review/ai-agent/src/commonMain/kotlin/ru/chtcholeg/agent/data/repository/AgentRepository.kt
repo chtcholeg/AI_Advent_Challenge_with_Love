@@ -53,12 +53,13 @@ class AgentRepository(
         hasLocalTools: Boolean,
         inPlanMode: Boolean,
         ragContext: String?,
-        ragCitations: Boolean
+        ragCitations: Boolean,
+        commandContext: String? = null
     ): String? {
         val hasTools = serverCategories.isNotEmpty() || hasLocalTools
 
         // --- Special case: /help command — simple context, no tools, no citations ---
-        if (ragContext != null && !ragCitations) {
+        if (ragContext != null && !ragCitations && commandContext == null) {
             return """
 Ты — AI-ассистент. Используй предоставленный контекст документа для ответа на вопрос пользователя.
 Отвечай компактно и по существу на человеческом языке (НЕ в JSON, НЕ в XML).
@@ -202,7 +203,14 @@ ${toolInstructionsBlock!!.trim()}
 <context>
 $ragContext
 </context>
+${if (commandContext != null) """
 
+═══════════════════════════════════════════
+КОНТЕКСТ КОМАНДЫ
+═══════════════════════════════════════════
+
+$commandContext
+""" else ""}
 Вывод: вызов инструмента в JSON-формате ИЛИ текстовый ответ (с цитатами — если использованы документы, без цитат — если использованы только инструменты).
             """.trimIndent()
         }
@@ -239,11 +247,23 @@ $ragContext
         // ═══════════════════════════════════════════
         // SCENARIO 3: MCP only — tool-focused
         // ═══════════════════════════════════════════
+        val commandContextSection = if (commandContext != null) {
+            """
+
+═══════════════════════════════════════════
+КОНТЕКСТ КОМАНДЫ
+═══════════════════════════════════════════
+
+$commandContext
+
+"""
+        } else ""
+
         return """
 Ты — точный и полезный AI-ассистент. Твоя задача — решать проблемы пользователя, используя доступные инструменты (API).
 
 ${toolInstructionsBlock!!.trim()}
-
+$commandContextSection
 Твой вывод ДОЛЖЕН быть либо вызовом инструмента в указанном JSON-формате, либо финальным ответом пользователю.
         """.trimIndent()
     }
@@ -253,7 +273,7 @@ ${toolInstructionsBlock!!.trim()}
      * Supports chained function calls (multiple tools in sequence).
      * Returns a list of messages: tool calls, tool results (including screenshots), and final AI response.
      */
-    suspend fun sendMessage(userMessage: String, ragContext: String? = null, ragCitations: Boolean = true, excludeTools: List<String>? = null): List<AgentMessage> {
+    suspend fun sendMessage(userMessage: String, ragContext: String? = null, ragCitations: Boolean = true, excludeTools: List<String>? = null, commandContext: String? = null): List<AgentMessage> {
         val settings = settingsRepository.settings.value
         val resultMessages = mutableListOf<AgentMessage>()
 
@@ -288,7 +308,8 @@ ${toolInstructionsBlock!!.trim()}
             hasLocalTools = hasLocalTools,
             inPlanMode = inPlanMode,
             ragContext = ragContext,
-            ragCitations = ragCitations
+            ragCitations = ragCitations,
+            commandContext = commandContext
         )
 
         // Don't send tool definitions when processing plain context (e.g. /help command)

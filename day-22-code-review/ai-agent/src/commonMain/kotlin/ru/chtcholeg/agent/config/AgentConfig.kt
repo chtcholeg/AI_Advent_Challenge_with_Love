@@ -6,7 +6,7 @@ package ru.chtcholeg.agent.config
  */
 object AgentConfig {
     /** Maximum tool-call iterations before stopping the agentic loop */
-    const val MAX_ITERATIONS = 10
+    const val MAX_ITERATIONS = 50
 
     /** Maximum context window size in tokens for sliding-window summarization */
     const val MAX_CONTEXT_TOKENS = 12_000

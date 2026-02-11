@@ -174,14 +174,31 @@ class CommandHandler(
             // Load CLAUDE.md as project context
             val projectContext = projectRootProvider.readClaudeMdFile()
 
+            // Detect if reviewing a PR (need different tools)
+            val isPrReview = args?.trim()?.matches(Regex("^\\d+$")) == true
+
             // Build review instructions
             val reviewInstructions = buildString {
                 appendLine("# Code Review Instructions")
                 appendLine()
-                appendLine("Выполни code review ПРЯМО СЕЙЧАС, используя git инструменты.")
-                appendLine("Начни с вызова git_status или git_diff для получения изменений.")
-                appendLine("Затем ОБЯЗАТЕЛЬНО прочитай каждый изменённый файл через read, чтобы видеть полный контекст кода.")
+                appendLine("⚠️ КРИТИЧЕСКИ ВАЖНО: Ты ДОЛЖЕН ВЫЗЫВАТЬ инструменты (function calls) для получения данных.")
+                appendLine("НЕ ОПИСЫВАЙ шаги словами. НЕ ДАВАЙ инструкции пользователю.")
+                appendLine("ВЫЗОВИ инструменты ПРЯМО СЕЙЧАС через function call.")
+                appendLine()
+                if (isPrReview) {
+                    appendLine("Последовательность вызовов инструментов:")
+                    appendLine("1. ВЫЗОВИ github_pr_get — получить метаданные PR")
+                    appendLine("2. ВЫЗОВИ github_pr_files — получить список изменённых файлов")
+                    appendLine("3. ВЫЗОВИ github_pr_diff — получить diff изменений")
+                    appendLine("НЕ используй git_status/git_diff — они показывают только локальные изменения, а не PR.")
+                } else {
+                    appendLine("Начни с ВЫЗОВА git_status или git_diff для получения изменений.")
+                }
+                appendLine("Затем ОБЯЗАТЕЛЬНО ВЫЗОВИ read для каждого изменённого файла, чтобы видеть полный контекст кода.")
                 appendLine("В ответе ВСЕГДА цитируй конкретные строки кода — не просто ссылайся на номера строк.")
+                appendLine()
+                appendLine("ЗАПРЕЩЕНО: описывать процесс review словами, давать пошаговые инструкции, предлагать сделать review вручную.")
+                appendLine("ОБЯЗАТЕЛЬНО: вызвать инструменты, получить реальные данные, проанализировать код и дать review.")
                 appendLine()
                 appendLine("Проведи детальное code review. Проверь следующие аспекты:")
                 appendLine("1. **Архитектура** — соответствие паттернам проекта (MVI, слои, модули)")
@@ -238,20 +255,17 @@ class CommandHandler(
                 trimmedArgs != null && trimmedArgs.matches(Regex("^\\d+$")) -> {
                     val prNumber = trimmedArgs
                     "Проведи code review для Pull Request #$prNumber. " +
-                        "Сначала вызови git_status, затем git_diff для получения изменений. " +
-                        "Читай изменённые файлы через read."
+                        "Начни ПРЯМО СЕЙЧАС: вызови github_pr_get с параметром pr_number=$prNumber."
                 }
                 // Branch name
                 !trimmedArgs.isNullOrBlank() -> {
                     "Проведи code review изменений ветки '$trimmedArgs'. " +
-                        "Сначала вызови git_diff для получения изменений ветки, затем git_log для истории. " +
-                        "Читай изменённые файлы через read."
+                        "Начни ПРЯМО СЕЙЧАС: вызови git_diff для получения изменений."
                 }
                 // No args — current changes
                 else -> {
                     "Проведи code review текущих изменений в рабочей директории. " +
-                        "Сначала вызови git_status для списка изменений, затем git_diff для деталей. " +
-                        "Читай изменённые файлы через read."
+                        "Начни ПРЯМО СЕЙЧАС: вызови git_status для получения списка изменений."
                 }
             }
 
