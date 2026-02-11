@@ -588,6 +588,236 @@ class GitHubWhoAmITool(GitTool):
 
 
 # ---------------------------------------------------------------------------
+# Tool: github_pr_list
+# ---------------------------------------------------------------------------
+
+class GitHubPrListTool(GitTool):
+    name = "github_pr_list"
+    description = (
+        "List pull requests for the GitHub repository. "
+        "Can filter by state (open, closed, all)."
+    )
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "state": {
+                "type": "string",
+                "enum": ["open", "closed", "all"],
+                "description": "Filter by PR state (default: open)",
+            },
+            "limit": {
+                "type": "integer",
+                "description": "Maximum number of PRs to return (default: 10, max: 100)",
+            },
+        },
+    }
+
+    async def execute(self, arguments: dict) -> ToolResult:
+        state = arguments.get("state", "open")
+        limit = min(arguments.get("limit", 10), 100)
+
+        try:
+            result = await self.client.github_pr_list(state=state, limit=limit)
+
+            lines = [
+                f"GitHub Pull Requests ({state})",
+                "=" * 50,
+                "",
+            ]
+
+            for pr in result["pull_requests"]:
+                lines.append(
+                    f"#{pr['number']} [{pr['state']}] {pr['title']} "
+                    f"(by {pr['author']}, {pr['head']} → {pr['base']})"
+                )
+
+            if not result["pull_requests"]:
+                lines.append("No pull requests found.")
+
+            return ToolResult("\n".join(lines))
+        except ValueError as e:
+            return ToolResult(
+                "GitHub token is not configured. "
+                "Set GITHUB_TOKEN env var or pass --github-token to the server.",
+                is_error=True,
+            )
+        except Exception as e:
+            logger.error(f"GitHubPrListTool error: {e}")
+            return ToolResult(f"Failed to list pull requests: {e}", is_error=True)
+
+
+# ---------------------------------------------------------------------------
+# Tool: github_pr_get
+# ---------------------------------------------------------------------------
+
+class GitHubPrGetTool(GitTool):
+    name = "github_pr_get"
+    description = (
+        "Get details of a specific GitHub pull request. "
+        "Returns title, body, author, labels, head/base branches, and change stats."
+    )
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "pr_number": {
+                "type": "integer",
+                "description": "Pull request number",
+            },
+        },
+        "required": ["pr_number"],
+    }
+
+    async def execute(self, arguments: dict) -> ToolResult:
+        pr_number = arguments.get("pr_number")
+
+        if pr_number is None:
+            return ToolResult("Missing required parameter: pr_number", is_error=True)
+
+        try:
+            pr = await self.client.github_pr_get(pr_number=pr_number)
+
+            labels = ", ".join(pr["labels"]) if pr["labels"] else "none"
+            lines = [
+                f"GitHub PR #{pr['number']}: {pr['title']}",
+                "=" * 50,
+                "",
+                f"State:         {pr['state']}",
+                f"Author:        {pr['author']}",
+                f"Branch:        {pr['head']} → {pr['base']}",
+                f"Labels:        {labels}",
+                f"Merged:        {pr['merged']}",
+                f"Mergeable:     {pr['mergeable']}",
+                f"Changes:       +{pr['additions']} -{pr['deletions']} in {pr['changed_files']} file(s)",
+                f"Created:       {pr['created_at']}",
+                f"Updated:       {pr['updated_at']}",
+                "",
+                "Description:",
+                pr["body"] or "(no description)",
+            ]
+
+            return ToolResult("\n".join(lines))
+        except ValueError as e:
+            return ToolResult(
+                "GitHub token is not configured. "
+                "Set GITHUB_TOKEN env var or pass --github-token to the server.",
+                is_error=True,
+            )
+        except Exception as e:
+            logger.error(f"GitHubPrGetTool error: {e}")
+            return ToolResult(f"Failed to get pull request: {e}", is_error=True)
+
+
+# ---------------------------------------------------------------------------
+# Tool: github_pr_diff
+# ---------------------------------------------------------------------------
+
+class GitHubPrDiffTool(GitTool):
+    name = "github_pr_diff"
+    description = (
+        "Get the diff (patch) of a GitHub pull request. "
+        "Returns the unified diff text. Large diffs are truncated to 5000 lines."
+    )
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "pr_number": {
+                "type": "integer",
+                "description": "Pull request number",
+            },
+        },
+        "required": ["pr_number"],
+    }
+
+    async def execute(self, arguments: dict) -> ToolResult:
+        pr_number = arguments.get("pr_number")
+
+        if pr_number is None:
+            return ToolResult("Missing required parameter: pr_number", is_error=True)
+
+        try:
+            result = await self.client.github_pr_diff(pr_number=pr_number)
+
+            diff_lines = result["diff"].split("\n")
+            truncated = len(diff_lines) > 5000
+            if truncated:
+                diff_lines = diff_lines[:5000]
+
+            lines = [
+                f"GitHub PR #{pr_number} Diff",
+                "=" * 50,
+                "",
+            ]
+            lines.extend(diff_lines)
+            if truncated:
+                lines.append("\n... (diff truncated at 5000 lines)")
+
+            return ToolResult("\n".join(lines))
+        except ValueError as e:
+            return ToolResult(
+                "GitHub token is not configured. "
+                "Set GITHUB_TOKEN env var or pass --github-token to the server.",
+                is_error=True,
+            )
+        except Exception as e:
+            logger.error(f"GitHubPrDiffTool error: {e}")
+            return ToolResult(f"Failed to get PR diff: {e}", is_error=True)
+
+
+# ---------------------------------------------------------------------------
+# Tool: github_pr_files
+# ---------------------------------------------------------------------------
+
+class GitHubPrFilesTool(GitTool):
+    name = "github_pr_files"
+    description = (
+        "List files changed in a GitHub pull request. "
+        "Returns filename, status (added/modified/removed), additions, and deletions for each file."
+    )
+    input_schema = {
+        "type": "object",
+        "properties": {
+            "pr_number": {
+                "type": "integer",
+                "description": "Pull request number",
+            },
+        },
+        "required": ["pr_number"],
+    }
+
+    async def execute(self, arguments: dict) -> ToolResult:
+        pr_number = arguments.get("pr_number")
+
+        if pr_number is None:
+            return ToolResult("Missing required parameter: pr_number", is_error=True)
+
+        try:
+            result = await self.client.github_pr_files(pr_number=pr_number)
+
+            lines = [
+                f"GitHub PR #{pr_number} Changed Files ({result['total']} files)",
+                "=" * 50,
+                "",
+            ]
+
+            for f in result["files"]:
+                lines.append(
+                    f"  [{f['status']}] {f['filename']} "
+                    f"(+{f['additions']} -{f['deletions']})"
+                )
+
+            return ToolResult("\n".join(lines))
+        except ValueError as e:
+            return ToolResult(
+                "GitHub token is not configured. "
+                "Set GITHUB_TOKEN env var or pass --github-token to the server.",
+                is_error=True,
+            )
+        except Exception as e:
+            logger.error(f"GitHubPrFilesTool error: {e}")
+            return ToolResult(f"Failed to get PR files: {e}", is_error=True)
+
+
+# ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
 
@@ -609,4 +839,8 @@ def get_all_tools(client: GitClient) -> list[GitTool]:
         GitPushTool(client),
         # GitHub operations
         GitHubWhoAmITool(client),
+        GitHubPrListTool(client),
+        GitHubPrGetTool(client),
+        GitHubPrDiffTool(client),
+        GitHubPrFilesTool(client),
     ]
