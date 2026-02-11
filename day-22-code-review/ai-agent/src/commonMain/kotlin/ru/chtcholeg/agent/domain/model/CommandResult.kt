@@ -1,0 +1,29 @@
+package ru.chtcholeg.agent.domain.model
+
+/**
+ * Result of a command execution.
+ */
+sealed class CommandResult {
+    /**
+     * Command executed successfully with a response.
+     */
+    data class Success(val response: String) : CommandResult()
+
+    /**
+     * Command produced context that needs additional LLM processing.
+     * The [context] is sent as system context, and [query] is the user's question.
+     * When [enableTools] is true, MCP and local tools remain available.
+     * [excludeTools] optionally filters out tools by name (e.g. task_create during /review-pr).
+     */
+    data class NeedsLlmProcessing(
+        val context: String,
+        val query: String,
+        val enableTools: Boolean = false,
+        val excludeTools: List<String>? = null
+    ) : CommandResult()
+
+    /**
+     * Command failed with an error message.
+     */
+    data class Error(val message: String) : CommandResult()
+}

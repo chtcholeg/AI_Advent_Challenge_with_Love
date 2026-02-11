@@ -317,6 +317,10 @@ class AgentStore(
     /**
      * Handle a command that requires LLM processing.
      * Sends the command context along with the user's query to the AI model.
+     *
+     * When [CommandResult.NeedsLlmProcessing.enableTools] is true (e.g. /review-pr),
+     * tools remain available (ragCitations=true) and RAG context is loaded if enabled.
+     * When false (e.g. /help), tools are disabled and only the command context is used.
      */
     private suspend fun handleLlmCommand(
         userMessage: AgentMessage,
@@ -327,29 +331,137 @@ class AgentStore(
             chatHistoryRepository.saveMessage(sessionId, userMessage)
             chatHistoryRepository.updateSessionTimestamp(sessionId)
 
-            val contextMessage = AgentMessage(
-                content = "Analyzing project documentation to answer: ${result.query}",
-                type = MessageType.RAG_CONTEXT
-            )
-            _state.update { it.copy(messages = it.messages + contextMessage) }
-            chatHistoryRepository.saveMessage(sessionId, contextMessage)
-
-            val responses = agentRepository.sendMessage(
-                userMessage = result.query,
-                ragContext = result.context,
-                ragCitations = false
-            )
-
-            _state.update { currentState ->
-                currentState.copy(
-                    messages = currentState.messages + responses,
-                    isLoading = false,
-                    error = null
+            if (result.enableTools) {
+                // Tools-enabled mode: load RAG context if available, keep MCP tools active
+                val statusMessage = AgentMessage(
+                    content = "Analyzing code changes with MCP tools...",
+                    type = MessageType.RAG_CONTEXT
                 )
-            }
+                _state.update { it.copy(messages = it.messages + statusMessage) }
+                chatHistoryRepository.saveMessage(sessionId, statusMessage)
 
-            chatHistoryRepository.saveMessages(sessionId, responses)
-            chatHistoryRepository.updateSessionTimestamp(sessionId)
+                // Optionally load RAG context for additional documentation
+                val settings = settingsRepository.settings.value
+                var combinedContext = result.context
+                var currentSources: Map<Int, SourceReference>? = null
+
+                if (settings.ragMode == RagMode.ON && settings.indexPath.isNotBlank()) {
+                    try {
+                        ragRepository.loadIndex(settings.indexPath)
+                        val chunks = if (settings.rerankerEnabled) {
+                            ragRepository.getRelevantChunksWithReranking(
+                                query = result.query,
+                                initialTopK = settings.ragInitialTopK,
+                                finalTopK = settings.ragFinalTopK,
+                                rerankerThreshold = settings.rerankerThreshold,
+                                scoreGapThreshold = settings.scoreGapThreshold
+                            ).rerankedResults
+                        } else {
+                            ragRepository.getRelevantChunks(result.query)
+                        }
+
+                        if (chunks.isNotEmpty()) {
+                            currentSources = ragRepository.buildSourceReferences(chunks)
+                            val ragContext = ragRepository.formatContext(chunks)
+                            combinedContext = "${result.context}\n\n# RAG Documentation Context\n\n$ragContext"
+
+                            val ragMessage = AgentMessage(
+                                content = "Loaded ${chunks.size} relevant document chunk(s) for review context.",
+                                type = MessageType.RAG_CONTEXT
+                            )
+                            _state.update { it.copy(messages = it.messages + ragMessage) }
+                            chatHistoryRepository.saveMessage(sessionId, ragMessage)
+                        }
+                    } catch (e: Exception) {
+                        val ragError = AgentMessage(
+                            content = "RAG context loading skipped: ${e.message}",
+                            type = MessageType.ERROR
+                        )
+                        _state.update { it.copy(messages = it.messages + ragError) }
+                        chatHistoryRepository.saveMessage(sessionId, ragError)
+                    }
+                }
+
+                val responses = agentRepository.sendMessage(
+                    userMessage = result.query,
+                    ragContext = combinedContext,
+                    ragCitations = true
+                )
+
+                // Attach source references if RAG provided them
+                val responsesWithSources = if (currentSources != null) {
+                    val sourcePattern = Regex("""\[Источник\s+(\d+)]""")
+                    val sourceSectionPattern = Regex("""\n*📚\s*Источники:[\s\S]*$""")
+                    responses.map { msg ->
+                        if (msg.type == MessageType.AI) {
+                            val mainText = sourceSectionPattern.replace(msg.content, "")
+                            val referencedNums = sourcePattern.findAll(mainText)
+                                .mapNotNull { it.groupValues[1].toIntOrNull() }
+                                .filter { it in currentSources }
+                                .distinct()
+                                .toList()
+                            if (referencedNums.isEmpty()) {
+                                msg.copy(sources = null)
+                            } else {
+                                val renumberMap = referencedNums
+                                    .sorted()
+                                    .mapIndexed { index, oldNum -> oldNum to (index + 1) }
+                                    .toMap()
+                                val renumberedContent = sourcePattern.replace(msg.content) { match ->
+                                    val oldNum = match.groupValues[1].toIntOrNull()
+                                    val newNum = oldNum?.let { renumberMap[it] }
+                                    if (newNum != null) "[Источник $newNum]" else match.value
+                                }
+                                val renumberedSources = renumberMap.mapNotNull { (oldNum, newNum) ->
+                                    currentSources[oldNum]?.let { newNum to it }
+                                }.toMap()
+                                msg.copy(
+                                    content = renumberedContent,
+                                    sources = renumberedSources.ifEmpty { null }
+                                )
+                            }
+                        } else msg
+                    }
+                } else {
+                    responses
+                }
+
+                _state.update { currentState ->
+                    currentState.copy(
+                        messages = currentState.messages + responsesWithSources,
+                        isLoading = false,
+                        error = null
+                    )
+                }
+
+                chatHistoryRepository.saveMessages(sessionId, responsesWithSources)
+                chatHistoryRepository.updateSessionTimestamp(sessionId)
+            } else {
+                // Tools-disabled mode (e.g. /help): simple context prompt, no tools
+                val contextMessage = AgentMessage(
+                    content = "Analyzing project documentation to answer: ${result.query}",
+                    type = MessageType.RAG_CONTEXT
+                )
+                _state.update { it.copy(messages = it.messages + contextMessage) }
+                chatHistoryRepository.saveMessage(sessionId, contextMessage)
+
+                val responses = agentRepository.sendMessage(
+                    userMessage = result.query,
+                    ragContext = result.context,
+                    ragCitations = false
+                )
+
+                _state.update { currentState ->
+                    currentState.copy(
+                        messages = currentState.messages + responses,
+                        isLoading = false,
+                        error = null
+                    )
+                }
+
+                chatHistoryRepository.saveMessages(sessionId, responses)
+                chatHistoryRepository.updateSessionTimestamp(sessionId)
+            }
         } catch (e: Exception) {
             val errorMessage = AgentMessage(
                 content = "LLM processing failed: ${e.message}",

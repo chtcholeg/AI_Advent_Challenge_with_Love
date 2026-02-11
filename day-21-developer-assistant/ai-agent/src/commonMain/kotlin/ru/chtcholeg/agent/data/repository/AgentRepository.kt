@@ -29,17 +29,44 @@ class AgentRepository(
     private var gigaChatTokenExpiry: Long? = null
 
     /**
-     * Generates system prompt based on connected MCP servers, local tools, and plan mode.
-     * Returns null if no tools are available.
+     * Builds unified system prompt based on all available capabilities.
+     *
+     * Scenarios:
+     * 1. MCP + RAG → intelligent routing between tools and documents, conditional citations
+     * 2. MCP only → tool-focused instructions
+     * 3. RAG only → document-focused with mandatory citations
+     * 4. Neither → null (plain AI response)
+     * 5. /help context (ragCitations=false) → simple context prompt, no tools, no citations
      */
     private fun buildSystemPrompt(
         serverCategories: List<String>,
         hasLocalTools: Boolean,
-        inPlanMode: Boolean
+        inPlanMode: Boolean,
+        ragContext: String?,
+        ragCitations: Boolean
     ): String? {
-        if (serverCategories.isEmpty() && !hasLocalTools) return null
-        val categories = mutableListOf<String>()
+        val hasTools = serverCategories.isNotEmpty() || hasLocalTools
 
+        // --- Special case: /help command — simple context, no tools, no citations ---
+        if (ragContext != null && !ragCitations) {
+            return """
+Ты — AI-ассистент. Используй предоставленный контекст документа для ответа на вопрос пользователя.
+Отвечай компактно и по существу на человеческом языке (НЕ в JSON, НЕ в XML).
+НЕ добавляй раздел "Источники" и ссылки вида [Источник N].
+НЕ вызывай никакие инструменты — просто ответь текстом.
+
+<context>
+$ragContext
+</context>
+            """.trimIndent()
+        }
+
+        // --- Neither tools nor documents → plain AI response ---
+        if (!hasTools && ragContext == null) return null
+
+        // --- Build reusable sections ---
+
+        val categories = mutableListOf<String>()
         if (hasLocalTools) {
             categories.add("- Local Tools (file operations, search, bash, task management, planning)")
         }
@@ -54,41 +81,154 @@ class AgentRepository(
 - ✓ ALLOWED: read, glob, grep, ask_user_question, write (for plan file only)
 - ✗ FORBIDDEN: edit, bash (no code changes or commands in plan mode)
 - When plan is complete, use exit_plan_mode to request user approval
-- Do NOT ask "Is the plan ready?" - exit_plan_mode handles approval
-"""
+- Do NOT ask "Is the plan ready?" - exit_plan_mode handles approval"""
         } else {
             """
 
-TASK MANAGEMENT:                                            
-- Use task_create for complex tasks (3+ steps)              
-- Mark in_progress BEFORE starting work                     
-- Mark completed ONLY when fully done                       
-- If blocked: keep in_progress + create new task for blocker
-- Use task_list after completing to check unblocked tasks   
+УПРАВЛЕНИЕ ЗАДАЧАМИ:
+- Используй task_create для сложных задач (3+ шагов)
+- Ставь in_progress ПЕРЕД началом работы
+- Ставь completed ТОЛЬКО когда задача полностью выполнена
+- Если заблокирован: оставь in_progress + создай новую задачу для блокера
+- После завершения вызови task_list для проверки разблокированных задач
 
-PLANNING MODE:                                                                  
-- Use enter_plan_mode for non-trivial implementation tasks                      
-- Prefer planning for: new features, architectural decisions, multi-file changes
-- In plan mode: explore, design, write plan, then exit_plan_mode                
-- Exit plan mode requests user approval automatically                           
-"""
+РЕЖИМ ПЛАНИРОВАНИЯ:
+- Используй enter_plan_mode для нетривиальных задач реализации
+- Предпочитай планирование для: новых фич, архитектурных решений, многофайловых изменений
+- В режиме планирования: исследуй, проектируй, пиши план, затем exit_plan_mode
+- exit_plan_mode автоматически запрашивает одобрение пользователя"""
         }
 
-        return """                                                                                                      
-Ты — точный и полезный AI-ассистент. Твоя задача — решать проблемы пользователя, используя доступные инструменты (API). 
+        val toolInstructionsBlock = if (hasTools) """
+ПРАВИЛА РАБОТЫ С ИНСТРУМЕНТАМИ:
+1. Анализируй запрос пользователя. Если для ответа нужны актуальные данные, вычисления или действия — используй инструменты.
+2. Когда получишь результат инструмента — проанализируй его.
+3. Если результата достаточно — дай ответ.
+4. Если нужна дополнительная информация — вызови следующий инструмент.
+5. Если инструменты не нужны — ответь, используя свои знания.
+6. Будь краток в рассуждениях. Главное — точный вызов инструмента или четкий ответ.
 
-ПРАВИЛА РАБОТЫ:
-1.  Анализируй запрос пользователя. Если для ответа нужны актуальные данные, вычисления или действия, которые ты не можешь выполнить сам, — используй инструменты.
-2.  Когда получишь результат вызова инструмента, проанализируй его.                                                                                               
-3.  Если результата достаточно для полного ответа пользователю — дай ответ.                                                                                       
-4.  Если нужна дополнительная информация — вызови следующий инструмент (вернись к шагу 2).                                                                        
-5.  Если инструменты не нужны или недоступны, дай ответ, используя свои знания.                                                                                   
-6.  Будь краток в рассуждениях. Главное — точный вызов инструмента или четкий ответ.                                                                              
-
+КРИТИЧЕСКИЕ ПРАВИЛА ВЫБОРА ИНСТРУМЕНТОВ:
+- Для чтения файлов ВСЕГДА используй 'read', НЕ 'bash' с cat/head/tail
+- Для записи файлов ВСЕГДА используй 'write', НЕ 'bash' с echo/cat
+- Для редактирования файлов ВСЕГДА используй 'edit', НЕ 'bash' с sed/awk
+- Для поиска файлов ВСЕГДА используй 'glob', НЕ 'bash' с find/ls
+- Для поиска в содержимом ВСЕГДА используй 'grep', НЕ 'bash' с grep/rg
+- 'bash' только для git, npm, docker и других terminal операций
 $planModeSection
 
 Доступные категории инструментов:
-$categoriesList
+$categoriesList""" else null
+
+        // ═══════════════════════════════════════════
+        // SCENARIO 1: MCP + RAG — intelligent routing
+        // ═══════════════════════════════════════════
+        if (hasTools && ragContext != null) {
+            return """
+Ты — точный и полезный AI-ассистент с доступом к базе документов И набору инструментов (tools/API).
+
+У тебя есть ДВА источника информации:
+1. 📄 ДОКУМЕНТЫ — релевантные фрагменты из базы знаний (в разделе <context> ниже)
+2. 🔧 ИНСТРУМЕНТЫ — MCP tools для выполнения действий (чтение файлов, bash, git и т.д.)
+
+═══════════════════════════════════════════
+СТРАТЕГИЯ: КАК ВЫБРАТЬ ИСТОЧНИК ОТВЕТА
+═══════════════════════════════════════════
+
+ПЕРЕД формированием ответа ОБЯЗАТЕЛЬНО определи тип запроса:
+
+▸ ТИП A — ИНФОРМАЦИОННЫЙ ЗАПРОС
+  Признаки: «что такое...», «как работает...», «объясни...», «расскажи про...», «в чём разница между...»
+  Действие:
+  1. Проверь, есть ли ответ в <context>
+  2. Если ДА → отвечай на основе документов С ЦИТАТАМИ [Источник N]
+  3. Если НЕТ → используй инструменты или свои знания БЕЗ цитат.
+     Скажи: «В предоставленных документах информация по этому вопросу не найдена» и ответь из своих знаний или с помощью инструментов.
+
+▸ ТИП B — ЗАПРОС НА ДЕЙСТВИЕ
+  Признаки: «создай...», «запусти...», «покажи файл...», «сделай коммит», «найди на диске...», «выполни...», «открой...», «удали...»
+  Действие:
+  1. Используй ИНСТРУМЕНТЫ (MCP tools)
+  2. Цитаты [Источник N] НЕ нужны — ты выполняешь действие, а не цитируешь документы
+  3. Раздел «📚 Источники:» НЕ добавляй
+
+▸ ТИП C — СМЕШАННЫЙ ЗАПРОС
+  Признаки: содержит И информационную часть, И запрос на действие
+  Примеры: «расскажи об архитектуре и покажи файл конфигурации», «что написано в доке о деплое, и запусти тесты»
+  Действие:
+  1. Информацию из документов сопровождай цитатами [Источник N]
+  2. Результаты инструментов приводи БЕЗ цитат
+  3. Раздел «📚 Источники:» добавляй ТОЛЬКО если хотя бы одна цитата [Источник N] была использована
+
+═══════════════════════════════════════════
+ПРАВИЛА ЦИТИРОВАНИЯ (только при использовании документов)
+═══════════════════════════════════════════
+
+Цитаты нужны ИСКЛЮЧИТЕЛЬНО когда ты берёшь информацию из раздела <context>:
+• Каждое утверждение из документов → сопровождай ссылкой [Источник N]
+• Точные выдержки из документов → приводи в кавычках «...»
+• Информация из нескольких источников → указывай все: [Источник 1][Источник 3]
+• Раздел «📚 Источники:» — добавляй В КОНЦЕ ответа ТОЛЬКО если есть хотя бы одна цитата:
+  📚 Источники:
+  [Источник 1] — имя файла, краткое описание использованной информации
+  [Источник 2] — имя файла, краткое описание использованной информации
+
+⚠️ ЗАПРЕЩЕНО добавлять раздел «📚 Источники:» если ни одна цитата [Источник N] в тексте ответа не использована.
+
+═══════════════════════════════════════════
+ПРАВИЛА РАБОТЫ С ИНСТРУМЕНТАМИ
+═══════════════════════════════════════════
+
+${toolInstructionsBlock!!.trim()}
+
+═══════════════════════════════════════════
+КОНТЕКСТ ДОКУМЕНТОВ
+═══════════════════════════════════════════
+
+<context>
+$ragContext
+</context>
+
+Вывод: вызов инструмента в JSON-формате ИЛИ текстовый ответ (с цитатами — если использованы документы, без цитат — если использованы только инструменты).
+            """.trimIndent()
+        }
+
+        // ═══════════════════════════════════════════
+        // SCENARIO 2: RAG only — document-focused
+        // ═══════════════════════════════════════════
+        if (ragContext != null) {
+            return """
+Ты — точный AI-ассистент с доступом к базе документов. Отвечай на вопросы, опираясь на предоставленный контекст.
+
+Инструменты (tools) тебе НЕ доступны. Отвечай только на основе документов и своих знаний.
+
+ОБЯЗАТЕЛЬНЫЕ ПРАВИЛА ЦИТИРОВАНИЯ:
+1. Каждое утверждение, основанное на документах, ДОЛЖНО сопровождаться ссылкой на источник в формате [Источник N].
+2. Приводи ТОЧНЫЕ ЦИТАТЫ из документов в кавычках «...», когда это уместно.
+3. Если используешь информацию из нескольких источников, указывай все релевантные ссылки.
+4. В конце ответа ОБЯЗАТЕЛЬНО добавь раздел «📚 Источники:» со списком всех использованных источников:
+   📚 Источники:
+   [Источник 1] — имя файла, краткое описание использованной информации
+   [Источник 2] — имя файла, краткое описание использованной информации
+5. Если контекст НЕ содержит ответа на вопрос, ЯВНО скажи: «В предоставленных документах информация по этому вопросу не найдена» и ответь на основе своих знаний, пометив это.
+
+ФОРМАТ ОТВЕТА:
+- Основной ответ с цитатами [Источник N] и выдержками «...»
+- Раздел «📚 Источники:» в конце
+
+<context>
+$ragContext
+</context>
+            """.trimIndent()
+        }
+
+        // ═══════════════════════════════════════════
+        // SCENARIO 3: MCP only — tool-focused
+        // ═══════════════════════════════════════════
+        return """
+Ты — точный и полезный AI-ассистент. Твоя задача — решать проблемы пользователя, используя доступные инструменты (API).
+
+${toolInstructionsBlock!!.trim()}
 
 Твой вывод ДОЛЖЕН быть либо вызовом инструмента в указанном JSON-формате, либо финальным ответом пользователю.
         """.trimIndent()
@@ -123,47 +263,14 @@ $categoriesList
         // Check if in plan mode
         val inPlanMode = planModeRepository.planModeState.value.isActive
 
-        // Build system prompt: RAG context section + MCP tool instructions
-        val mcpSystemPrompt = buildSystemPrompt(serverCategories, hasLocalTools, inPlanMode)
-        val ragSystemSection = if (ragContext != null && ragCitations) {
-            """
-Ты — точный AI-ассистент с доступом к базе документов. Отвечай на вопросы, опираясь на предоставленный контекст.
-
-ОБЯЗАТЕЛЬНЫЕ ПРАВИЛА ЦИТИРОВАНИЯ:
-1. Каждое утверждение, основанное на документах, ДОЛЖНО сопровождаться ссылкой на источник в формате [Источник N].
-2. Приводи ТОЧНЫЕ ЦИТАТЫ из документов в кавычках «...», когда это уместно.
-3. Если используешь информацию из нескольких источников, указывай все релевантные ссылки.
-4. В конце ответа можешь добавить раздел "📚 Источники:" со списком всех использованных источников.
-
-ФОРМАТ ОТВЕТА В СЛУЧАЕ ИСПОЛЬЗОВАНИЯ НЕСКОЛЬКИХ ЦИТАТ:
-- Основной ответ с цитатами [Источник N] и выдержками «...»
-- Раздел "📚 Источники:" в конце:
-  📚 Источники:
-  [Источник 1] — имя файла, краткое описание использованной информации
-  [Источник 2] — имя файла, краткое описание использованной информации
-
-<context>
-$ragContext
-</context>
-            """.trimIndent()
-        } else if (ragContext != null) {
-            """
-Ты — AI-ассистент. Используй предоставленный контекст документа для ответа на вопрос пользователя.
-Отвечай компактно и по существу на человеческом языке (НЕ в JSON, НЕ в XML).
-НЕ добавляй раздел "Источники" и ссылки вида [Источник N].
-НЕ вызывай никакие инструменты — просто ответь текстом.
-
-<context>
-$ragContext
-</context>
-            """.trimIndent()
-        } else null
-        val systemPrompt = when {
-            ragSystemSection != null && mcpSystemPrompt != null && ragCitations -> "$ragSystemSection\n\n$mcpSystemPrompt"
-            ragSystemSection != null && !ragCitations -> ragSystemSection
-            ragSystemSection != null -> "$ragSystemSection\n\n$mcpSystemPrompt"
-            else -> mcpSystemPrompt
-        }
+        // Build unified system prompt (handles all scenarios: MCP+RAG, MCP only, RAG only, /help, neither)
+        val systemPrompt = buildSystemPrompt(
+            serverCategories = serverCategories,
+            hasLocalTools = hasLocalTools,
+            inPlanMode = inPlanMode,
+            ragContext = ragContext,
+            ragCitations = ragCitations
+        )
 
         // Don't send tool definitions when processing plain context (e.g. /help command)
         val functions = if (!ragCitations && ragContext != null) {
