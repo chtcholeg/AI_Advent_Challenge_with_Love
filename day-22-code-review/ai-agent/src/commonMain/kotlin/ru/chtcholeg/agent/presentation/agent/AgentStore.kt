@@ -230,7 +230,10 @@ class AgentStore(
             chatHistoryRepository.updateSessionTimestamp(sessionId)
 
             if (result.enableTools) {
-                // Tools-enabled mode: load RAG context if available, keep MCP tools active
+                // === PHASE 1: Data gathering + review WITHOUT RAG ===
+                // Use clean MCP-only mode so the model focuses on calling tools.
+                // RAG context in this phase confuses the model into describing
+                // steps instead of actually invoking function calls.
                 val statusMessage = AgentMessage(
                     content = "Analyzing code changes with MCP tools...",
                     type = MessageType.RAG_CONTEXT
@@ -238,32 +241,50 @@ class AgentStore(
                 _state.update { it.copy(messages = it.messages + statusMessage) }
                 chatHistoryRepository.saveMessage(sessionId, statusMessage)
 
-                // Load RAG context and combine with command context
-                val (ragContext, currentSources) = loadRagContext(result.query, sessionId)
-                val combinedContext = if (ragContext != null) {
-                    "${result.context}\n\n# RAG Documentation Context\n\n$ragContext"
-                } else {
-                    result.context
-                }
-
-                val responses = agentRepository.sendMessage(
+                val toolResponses = agentRepository.sendMessage(
                     userMessage = result.query,
-                    ragContext = combinedContext,
+                    ragContext = null,
                     ragCitations = true,
-                    excludeTools = result.excludeTools
+                    excludeTools = result.excludeTools,
+                    commandContext = result.context
                 )
 
-                val responsesWithSources = attachSources(responses, currentSources)
+                _state.update { it.copy(messages = it.messages + toolResponses) }
+                chatHistoryRepository.saveMessages(sessionId, toolResponses)
 
-                _state.update { currentState ->
-                    currentState.copy(
-                        messages = currentState.messages + responsesWithSources,
-                        isLoading = false,
-                        error = null
+                // === PHASE 2: Enhance review with RAG documentation (if available) ===
+                val (ragContext, currentSources) = loadRagContext(result.query, sessionId)
+                if (ragContext != null) {
+                    val ragStatusMessage = AgentMessage(
+                        content = "Enhancing review with project documentation...",
+                        type = MessageType.RAG_CONTEXT
                     )
+                    _state.update { it.copy(messages = it.messages + ragStatusMessage) }
+                    chatHistoryRepository.saveMessage(sessionId, ragStatusMessage)
+
+                    val ragResponses = agentRepository.sendMessage(
+                        userMessage = "Используя документацию проекта, дополни свой code review выше:\n" +
+                            "- Проверь соответствие изменений архитектурным паттернам проекта\n" +
+                            "- Укажи нарушения правил и рекомендаций из документации\n" +
+                            "- Добавь рекомендации на основе документации, если они релевантны\n" +
+                            "Если документация не содержит релевантной информации — так и скажи.",
+                        ragContext = ragContext,
+                        ragCitations = false,
+                        excludeTools = null
+                    )
+
+                    _state.update { currentState ->
+                        currentState.copy(
+                            messages = currentState.messages + ragResponses,
+                            isLoading = false,
+                            error = null
+                        )
+                    }
+                    chatHistoryRepository.saveMessages(sessionId, ragResponses)
+                } else {
+                    _state.update { it.copy(isLoading = false, error = null) }
                 }
 
-                chatHistoryRepository.saveMessages(sessionId, responsesWithSources)
                 chatHistoryRepository.updateSessionTimestamp(sessionId)
             } else {
                 // Tools-disabled mode (e.g. /help): simple context prompt, no tools
