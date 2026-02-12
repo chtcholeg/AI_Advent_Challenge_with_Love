@@ -12,7 +12,7 @@ object AgentConfig {
     const val MAX_CONTEXT_TOKENS = 12_000
 
     /** Maximum character budget for command context (system prompt + code) */
-    const val MAX_CONTEXT_CHARS = 16_000
+    const val MAX_CONTEXT_CHARS = 50_000
 
     /** Hard limit for any message content sent to the AI model */
     const val MAX_MESSAGE_LENGTH = 5_000
@@ -27,11 +27,11 @@ object AgentConfig {
     const val MAX_CONCURRENT_BACKGROUND = 5
 
     /** Maximum characters for diff content in pre-fetched review data */
-    const val MAX_REVIEW_DIFF_CHARS = 12_000
+    const val MAX_REVIEW_DIFF_CHARS = 20_000
 
     /** Maximum characters per file content in pre-fetched review data */
-    const val MAX_REVIEW_FILE_CHARS = 3_000
+    const val MAX_REVIEW_FILE_CHARS = 6_000
 
     /** Maximum total characters for all file contents combined in pre-fetched review data */
-    const val MAX_REVIEW_TOTAL_FILES_CHARS = 20_000
+    const val MAX_REVIEW_TOTAL_FILES_CHARS = 40_000
 }

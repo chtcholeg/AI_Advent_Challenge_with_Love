@@ -230,34 +230,53 @@ class AgentStore(
             chatHistoryRepository.updateSessionTimestamp(sessionId)
 
             if (result.enableTools) {
+                // ═══════════════════════════════════════════════════════════════════════
+                // TWO-PHASE CODE REVIEW ARCHITECTURE
+                // ═══════════════════════════════════════════════════════════════════════
+                // Phase 1: MCP tools gather data (diff, files, git info)
+                // Phase 2: RAG documentation validates against project standards
+                //
+                // WHY TWO PHASES?
+                // - Phase 1 with RAG: model describes steps instead of calling tools
+                // - Phase 1 without RAG: model correctly invokes function calls
+                // - Phase 2: documentation context enhances review quality
+                // ═══════════════════════════════════════════════════════════════════════
+
                 // === PHASE 1: Data gathering + review WITHOUT RAG ===
                 // Use clean MCP-only mode so the model focuses on calling tools.
                 // RAG context in this phase confuses the model into describing
                 // steps instead of actually invoking function calls.
                 val statusMessage = AgentMessage(
-                    content = "Analyzing code changes with MCP tools...",
+                    content = "Phase 1/2: Analyzing code changes with MCP tools...",
                     type = MessageType.RAG_CONTEXT
                 )
                 _state.update { it.copy(messages = it.messages + statusMessage) }
                 chatHistoryRepository.saveMessage(sessionId, statusMessage)
 
-                val toolResponses = agentRepository.sendMessage(
-                    userMessage = result.query,
-                    ragContext = null,
-                    ragCitations = true,
-                    excludeTools = result.excludeTools,
-                    includeTools = result.includeTools,
-                    commandContext = result.context
-                )
+                val toolResponses = try {
+                    agentRepository.sendMessage(
+                        userMessage = result.query,
+                        ragContext = null,
+                        ragCitations = true,
+                        excludeTools = result.excludeTools,
+                        includeTools = result.includeTools,
+                        commandContext = result.context
+                    )
+                } catch (e: Exception) {
+                    println("[AgentStore] PHASE 1 failed: ${e.message}")
+                    throw e
+                }
 
                 _state.update { it.copy(messages = it.messages + toolResponses) }
                 chatHistoryRepository.saveMessages(sessionId, toolResponses)
 
                 // === PHASE 2: Enhance review with RAG documentation (if available) ===
+                // If RAG index is configured, load project documentation and validate
+                // code changes against documented standards, patterns, and conventions.
                 val (ragContext, currentSources) = loadRagContext(result.query, sessionId)
                 if (ragContext != null) {
                     val ragStatusMessage = AgentMessage(
-                        content = "Enhancing review with project documentation...",
+                        content = "Phase 2/2: Enhancing review with project documentation...",
                         type = MessageType.RAG_CONTEXT
                     )
                     _state.update { it.copy(messages = it.messages + ragStatusMessage) }
@@ -297,19 +316,32 @@ class AgentStore(
 
                 chatHistoryRepository.updateSessionTimestamp(sessionId)
             } else {
-                // Tools-disabled mode (e.g. /help): simple context prompt, no tools
+                // Tools-disabled mode: /help uses ragContext, /review pre-fetched uses commandContext
+                val isReview = result.context.contains("Code Review Instructions")
                 val contextMessage = AgentMessage(
-                    content = "Analyzing project documentation to answer: ${result.query}",
+                    content = if (isReview) "Analyzing code changes..." else "Analyzing project documentation to answer: ${result.query}",
                     type = MessageType.RAG_CONTEXT
                 )
                 _state.update { it.copy(messages = it.messages + contextMessage) }
                 chatHistoryRepository.saveMessage(sessionId, contextMessage)
 
-                val responses = agentRepository.sendMessage(
-                    userMessage = result.query,
-                    ragContext = result.context,
-                    ragCitations = false
-                )
+                val responses = if (isReview) {
+                    // Pre-fetched review: pass as commandContext so it becomes
+                    // part of the system prompt (not buried inside <context> tags)
+                    agentRepository.sendMessage(
+                        userMessage = result.query,
+                        ragContext = null,
+                        ragCitations = false,
+                        commandContext = result.context
+                    )
+                } else {
+                    // /help: pass as ragContext for simple document Q&A
+                    agentRepository.sendMessage(
+                        userMessage = result.query,
+                        ragContext = result.context,
+                        ragCitations = false
+                    )
+                }
 
                 _state.update { currentState ->
                     currentState.copy(
@@ -338,13 +370,15 @@ class AgentStore(
     }
 
     private fun newChat() {
-        agentRepository.clearHistory()
-        _state.update {
-            AgentState(
-                availableTools = it.availableTools,
-                currentSessionId = null,
-                currentSessionTitle = null
-            )
+        coroutineScope.launch {
+            agentRepository.clearHistory()
+            _state.update {
+                AgentState(
+                    availableTools = it.availableTools,
+                    currentSessionId = null,
+                    currentSessionTitle = null
+                )
+            }
         }
     }
 

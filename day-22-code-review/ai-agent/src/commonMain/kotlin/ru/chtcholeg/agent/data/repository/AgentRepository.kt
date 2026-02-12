@@ -4,6 +4,8 @@ import io.ktor.client.*
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.datetime.Clock
 import kotlinx.serialization.json.*
 import ru.chtcholeg.agent.BuildKonfig
@@ -35,6 +37,7 @@ class AgentRepository(
     private val huggingFaceApi: HuggingFaceApi = HuggingFaceApiImpl(httpClient)
 
     private val conversationHistory = mutableListOf<Message>()
+    private val historyMutex = Mutex()
     private var gigaChatAccessToken: String? = null
     private var gigaChatTokenExpiry: Long? = null
 
@@ -72,8 +75,19 @@ $ragContext
             """.trimIndent()
         }
 
+        // --- Special case: pre-fetched review — command context with instructions, no tools ---
+        if (commandContext != null && ragContext == null && !ragCitations) {
+            return """
+Ты — опытный code reviewer. Все данные и инструкции предоставлены ниже.
+НЕ вызывай никакие инструменты — все данные уже собраны.
+Строго следуй инструкциям по формату и методологии анализа.
+
+$commandContext
+            """.trimIndent()
+        }
+
         // --- Neither tools nor documents → plain AI response ---
-        if (!hasTools && ragContext == null) return null
+        if (!hasTools && ragContext == null && commandContext == null) return null
 
         // --- Build reusable sections ---
 
@@ -278,12 +292,14 @@ $commandContextSection
         val resultMessages = mutableListOf<AgentMessage>()
 
         // Add user message to history
-        conversationHistory.add(
-            Message(
-                role = "user",
-                content = userMessage
+        historyMutex.withLock {
+            conversationHistory.add(
+                Message(
+                    role = "user",
+                    content = userMessage
+                )
             )
-        )
+        }
 
         // Get connected servers
         val connectedServers = mcpRepository.servers.value
@@ -293,7 +309,13 @@ $commandContextSection
         // Get available tools from MCP servers and local tools, applying filter
         val allTools = mcpRepository.getAllTools()
         val availableTools = when {
-            includeTools != null -> allTools.filter { it.name in includeTools }
+            includeTools != null -> {
+                val filtered = allTools.filter { it.name in includeTools }
+                if (filtered.isEmpty() && includeTools.isNotEmpty()) {
+                    println("[AgentRepository] WARNING: includeTools=$includeTools resulted in empty tool list")
+                }
+                filtered
+            }
             excludeTools != null -> allTools.filter { it.name !in excludeTools }
             else -> allTools
         }
@@ -312,8 +334,8 @@ $commandContextSection
             commandContext = commandContext
         )
 
-        // Don't send tool definitions when processing plain context (e.g. /help command)
-        val functions = if (!ragCitations && ragContext != null) {
+        // Don't send tool definitions when processing plain context (e.g. /help, pre-fetched review)
+        val functions = if (!ragCitations && (ragContext != null || commandContext != null)) {
             emptyList()
         } else {
             availableTools.map { tool ->
@@ -380,9 +402,11 @@ $commandContextSection
 
                 // Add all assistant function call messages to history
                 functionCalls.forEach { functionCall ->
-                    conversationHistory.add(
-                        Message(role = "assistant", content = null, functionCall = functionCall)
-                    )
+                    historyMutex.withLock {
+                        conversationHistory.add(
+                            Message(role = "assistant", content = null, functionCall = functionCall)
+                        )
+                    }
                     resultMessages.add(
                         AgentMessage(
                             content = "${functionCall.name}(${functionCall.arguments})",
@@ -417,9 +441,11 @@ $commandContextSection
                         put("is_error", toolResult.isError)
                     }.toString()
 
-                    conversationHistory.add(
-                        Message(role = "function", name = functionCall.name, content = functionResultJson)
-                    )
+                    historyMutex.withLock {
+                        conversationHistory.add(
+                            Message(role = "function", name = functionCall.name, content = functionResultJson)
+                        )
+                    }
 
                     if (screenshotMessage != null) {
                         resultMessages.add(screenshotMessage)
@@ -439,9 +465,11 @@ $commandContextSection
                 ?: error("No response choice from AI")
 
             val aiMessage = choice.message.content ?: ""
-            conversationHistory.add(
-                Message(role = "assistant", content = aiMessage)
-            )
+            historyMutex.withLock {
+                conversationHistory.add(
+                    Message(role = "assistant", content = aiMessage)
+                )
+            }
 
             resultMessages.add(
                 AgentMessage(
@@ -488,12 +516,14 @@ $commandContextSection
             gigaChatTokenExpiry = authResponse.expiresAt
         }
 
-        // Log original history size
-        val originalSize = conversationHistory.sumOf { (it.content?.length ?: 0) }
-        println("[AgentRepository] Original history: ${conversationHistory.size} messages, $originalSize chars")
+        // Log original history size and sanitize messages
+        val sanitizedHistory = historyMutex.withLock {
+            val originalSize = conversationHistory.sumOf { (it.content?.length ?: 0) }
+            println("[AgentRepository] Original history: ${conversationHistory.size} messages, $originalSize chars")
 
-        // Sanitize messages to remove any large base64 image data
-        val sanitizedHistory = conversationHistory.map { imageProcessor.sanitizeMessageForApi(it) }
+            // Sanitize messages to remove any large base64 image data
+            conversationHistory.map { imageProcessor.sanitizeMessageForApi(it) }
+        }
 
         // Log sanitized size
         val sanitizedSize = sanitizedHistory.sumOf { (it.content?.length ?: 0) }
@@ -534,7 +564,9 @@ $commandContextSection
         systemPrompt: String?
     ): ChatResponse {
         // Sanitize messages to remove any large base64 image data
-        val sanitizedHistory = conversationHistory.map { imageProcessor.sanitizeMessageForApi(it) }
+        val sanitizedHistory = historyMutex.withLock {
+            conversationHistory.map { imageProcessor.sanitizeMessageForApi(it) }
+        }
 
         // Apply sliding window with summarization
         val windowResult = contextManager.applyWindow(sanitizedHistory)
@@ -712,8 +744,10 @@ $commandContextSection
         )
     }
 
-    fun clearHistory() {
-        conversationHistory.clear()
+    suspend fun clearHistory() {
+        historyMutex.withLock {
+            conversationHistory.clear()
+        }
     }
 
     /**
@@ -721,16 +755,22 @@ $commandContextSection
      * Restores USER, AI, TOOL_CALL, and TOOL_RESULT messages to preserve
      * the full conversation context including tool interactions.
      */
-    fun restoreHistory(messages: List<AgentMessage>) {
-        conversationHistory.clear()
+    suspend fun restoreHistory(messages: List<AgentMessage>) {
+        historyMutex.withLock {
+            conversationHistory.clear()
+        }
         messages.forEach { msg ->
             when (msg.type) {
-                MessageType.USER -> conversationHistory.add(
-                    Message(role = "user", content = msg.content)
-                )
-                MessageType.AI -> conversationHistory.add(
-                    Message(role = "assistant", content = msg.content)
-                )
+                MessageType.USER -> historyMutex.withLock {
+                    conversationHistory.add(
+                        Message(role = "user", content = msg.content)
+                    )
+                }
+                MessageType.AI -> historyMutex.withLock {
+                    conversationHistory.add(
+                        Message(role = "assistant", content = msg.content)
+                    )
+                }
                 MessageType.TOOL_CALL -> {
                     // Reconstruct function call from persisted format "name(args)"
                     val fcMatch = Regex("""^(\w+)\((.+)\)$""", RegexOption.DOT_MATCHES_ALL)
@@ -740,13 +780,15 @@ $commandContextSection
                         val argsStr = fcMatch.groupValues[2]
                         try {
                             val argsJson = kotlinx.serialization.json.Json.parseToJsonElement(argsStr)
-                            conversationHistory.add(
-                                Message(
-                                    role = "assistant",
-                                    content = null,
-                                    functionCall = FunctionCall(name = name, arguments = argsJson)
+                            historyMutex.withLock {
+                                conversationHistory.add(
+                                    Message(
+                                        role = "assistant",
+                                        content = null,
+                                        functionCall = FunctionCall(name = name, arguments = argsJson)
+                                    )
                                 )
-                            )
+                            }
                         } catch (_: Exception) {
                             // Can't parse args — skip this tool call
                         }
@@ -755,15 +797,17 @@ $commandContextSection
                 MessageType.TOOL_RESULT -> {
                     // Restore as function result message
                     // We need the tool name from the preceding TOOL_CALL
-                    val prevToolCall = conversationHistory.lastOrNull()?.functionCall
-                    val toolName = prevToolCall?.name ?: "unknown"
-                    val resultJson = kotlinx.serialization.json.buildJsonObject {
-                        put("result", msg.content.take(AgentConfig.MAX_MESSAGE_LENGTH))
-                        put("is_error", false)
-                    }.toString()
-                    conversationHistory.add(
-                        Message(role = "function", name = toolName, content = resultJson)
-                    )
+                    historyMutex.withLock {
+                        val prevToolCall = conversationHistory.lastOrNull()?.functionCall
+                        val toolName = prevToolCall?.name ?: "unknown"
+                        val resultJson = kotlinx.serialization.json.buildJsonObject {
+                            put("result", msg.content.take(AgentConfig.MAX_MESSAGE_LENGTH))
+                            put("is_error", false)
+                        }.toString()
+                        conversationHistory.add(
+                            Message(role = "function", name = toolName, content = resultJson)
+                        )
+                    }
                 }
                 else -> { /* skip SCREENSHOT, SYSTEM, ERROR, RAG_CONTEXT, COMMAND */ }
             }
