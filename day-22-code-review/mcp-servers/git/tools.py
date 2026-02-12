@@ -48,6 +48,13 @@ class GitStatusTool(GitTool):
             },
         },
     }
+    few_shot_examples = [
+        {"request": "Покажи статус репозитория", "params": {}},
+        {"request": "Какие файлы изменены?", "params": {"short": True}},
+    ]
+    negative_few_shot_examples = [
+        {"request": "Покажи diff PR #5", "reason": "Для PR diff используй github_pr_diff"},
+    ]
 
     async def execute(self, arguments: dict) -> ToolResult:
         short = arguments.get("short", False)
@@ -120,8 +127,8 @@ class GitLogTool(GitTool):
 class GitDiffTool(GitTool):
     name = "git_diff"
     description = (
-        "Show changes between commits, commit and working tree, etc. "
-        "Can show unstaged changes, staged changes, or diff of specific file."
+        "Show LOCAL working tree changes (unstaged/staged). "
+        "NOT for pull requests — use github_pr_diff for PR diffs."
     )
     input_schema = {
         "type": "object",
@@ -140,6 +147,14 @@ class GitDiffTool(GitTool):
             },
         },
     }
+    few_shot_examples = [
+        {"request": "Покажи локальные изменения", "params": {}},
+        {"request": "Что изменено в файле main.py?", "params": {"file_path": "main.py"}},
+    ]
+    negative_few_shot_examples = [
+        {"request": "Покажи diff для PR #5", "reason": "Для PR используй github_pr_diff, а не git_diff"},
+        {"request": "Проведи code review PR #10", "reason": "Для PR review используй github_pr_diff"},
+    ]
 
     async def execute(self, arguments: dict) -> ToolResult:
         cached = arguments.get("cached", False)
@@ -560,6 +575,9 @@ class GitHubWhoAmITool(GitTool):
         "type": "object",
         "properties": {},
     }
+    negative_few_shot_examples = [
+        {"request": "Проведи code review PR #5", "reason": "Для review PR используй github_pr_get, github_pr_diff, github_pr_files"},
+    ]
 
     async def execute(self, arguments: dict) -> ToolResult:
         try:
@@ -611,6 +629,9 @@ class GitHubPrListTool(GitTool):
             },
         },
     }
+    negative_few_shot_examples = [
+        {"request": "Проведи code review PR #5", "reason": "Для конкретного PR используй github_pr_get/github_pr_diff, а не list"},
+    ]
 
     async def execute(self, arguments: dict) -> ToolResult:
         state = arguments.get("state", "open")
@@ -666,6 +687,10 @@ class GitHubPrGetTool(GitTool):
         },
         "required": ["pr_number"],
     }
+    few_shot_examples = [
+        {"request": "Покажи информацию о PR #5", "params": {"pr_number": 5}},
+        {"request": "Получи метаданные пулл-реквеста 12", "params": {"pr_number": 12}},
+    ]
 
     async def execute(self, arguments: dict) -> ToolResult:
         pr_number = arguments.get("pr_number")
@@ -715,7 +740,9 @@ class GitHubPrDiffTool(GitTool):
     name = "github_pr_diff"
     description = (
         "Get the diff (patch) of a GitHub pull request. "
-        "Returns the unified diff text. Large diffs are truncated to 5000 lines."
+        "Returns the unified diff text showing all code changes. "
+        "REQUIRED for PR code review — shows exactly what was changed. "
+        "Large diffs are truncated to 5000 lines."
     )
     input_schema = {
         "type": "object",
@@ -727,6 +754,12 @@ class GitHubPrDiffTool(GitTool):
         },
         "required": ["pr_number"],
     }
+    few_shot_examples = [
+        {"request": "Покажи diff для PR #5", "params": {"pr_number": 5}},
+        {"request": "Получи изменения кода в пулл-реквесте 12", "params": {"pr_number": 12}},
+        {"request": "Проведи code review PR #3", "params": {"pr_number": 3}},
+        {"request": "Какие изменения в PR #7?", "params": {"pr_number": 7}},
+    ]
 
     async def execute(self, arguments: dict) -> ToolResult:
         pr_number = arguments.get("pr_number")
@@ -783,6 +816,10 @@ class GitHubPrFilesTool(GitTool):
         },
         "required": ["pr_number"],
     }
+    few_shot_examples = [
+        {"request": "Какие файлы изменены в PR #5?", "params": {"pr_number": 5}},
+        {"request": "Список файлов пулл-реквеста 12", "params": {"pr_number": 12}},
+    ]
 
     async def execute(self, arguments: dict) -> ToolResult:
         pr_number = arguments.get("pr_number")

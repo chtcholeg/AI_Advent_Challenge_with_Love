@@ -83,7 +83,7 @@ fun appModule() = module {
 
     // Command System
     single<ProjectRootProvider> { createProjectRootProvider() }
-    single { CommandHandler(get()) }
+    single { CommandHandler(get(), get()) }
 
     // Image processing and tool execution
     single { ImageProcessor() }

@@ -257,6 +257,19 @@ async def handle_message(
             # Execute tool
             try:
                 result = await tool.execute(arguments)
+
+                # Log response body preview (up to 6 lines: first 3 + last 3)
+                body_lines = result.content.splitlines()
+                if len(body_lines) <= 6:
+                    preview = "\n".join(body_lines)
+                else:
+                    skipped = len(body_lines) - 6
+                    preview = "\n".join(body_lines[:3])
+                    preview += f"\n... ({skipped} more lines) ..."
+                    preview += "\n" + "\n".join(body_lines[-3:])
+                status = "ERROR" if result.is_error else "OK"
+                logger.info(f"Tool {tool_name} [{status}]:\n{preview}")
+
                 return {
                     "jsonrpc": "2.0",
                     "id": msg_id,

@@ -273,7 +273,7 @@ $commandContextSection
      * Supports chained function calls (multiple tools in sequence).
      * Returns a list of messages: tool calls, tool results (including screenshots), and final AI response.
      */
-    suspend fun sendMessage(userMessage: String, ragContext: String? = null, ragCitations: Boolean = true, excludeTools: List<String>? = null, commandContext: String? = null): List<AgentMessage> {
+    suspend fun sendMessage(userMessage: String, ragContext: String? = null, ragCitations: Boolean = true, excludeTools: List<String>? = null, includeTools: List<String>? = null, commandContext: String? = null): List<AgentMessage> {
         val settings = settingsRepository.settings.value
         val resultMessages = mutableListOf<AgentMessage>()
 
@@ -290,12 +290,12 @@ $commandContextSection
             .filter { it.status == ConnectionStatus.CONNECTED }
         val serverCategories = connectedServers.map { it.name }
 
-        // Get available tools from MCP servers and local tools, applying exclusion filter
+        // Get available tools from MCP servers and local tools, applying filter
         val allTools = mcpRepository.getAllTools()
-        val availableTools = if (excludeTools != null) {
-            allTools.filter { it.name !in excludeTools }
-        } else {
-            allTools
+        val availableTools = when {
+            includeTools != null -> allTools.filter { it.name in includeTools }
+            excludeTools != null -> allTools.filter { it.name !in excludeTools }
+            else -> allTools
         }
         val hasLocalTools = availableTools.any { it.serverId == "local" }
 
@@ -359,7 +359,7 @@ $commandContextSection
                 RetryPolicy.withRetry {
                     when (settings.model.api) {
                         Model.Api.GIGACHAT -> sendToGigaChat(settings, functions, systemPrompt)
-                        Model.Api.HUGGINGFACE -> sendToHuggingFace(settings)
+                        Model.Api.HUGGINGFACE -> sendToHuggingFace(settings, functions, systemPrompt)
                     }
                 }
             }
@@ -528,18 +528,27 @@ $commandContextSection
         )
     }
 
-    private suspend fun sendToHuggingFace(settings: AiSettings): ChatResponse {
+    private suspend fun sendToHuggingFace(
+        settings: AiSettings,
+        functions: List<GigaChatFunction>,
+        systemPrompt: String?
+    ): ChatResponse {
         // Sanitize messages to remove any large base64 image data
         val sanitizedHistory = conversationHistory.map { imageProcessor.sanitizeMessageForApi(it) }
 
+        // Apply sliding window with summarization
+        val windowResult = contextManager.applyWindow(sanitizedHistory)
+
         return huggingFaceApi.sendMessage(
             accessToken = BuildKonfig.HUGGINGFACE_API_TOKEN,
-            messages = sanitizedHistory,
+            messages = windowResult.messages,
             model = settings.model.id,
             temperature = settings.temperature,
             topP = settings.topP,
             maxTokens = settings.maxTokens,
-            repetitionPenalty = settings.repetitionPenalty
+            repetitionPenalty = settings.repetitionPenalty,
+            functions = functions.takeIf { it.isNotEmpty() },
+            systemPrompt = systemPrompt
         )
     }
 
@@ -596,7 +605,7 @@ $commandContextSection
             val response = RetryPolicy.withRetry {
                 when (settings.model.api) {
                     Model.Api.GIGACHAT -> sendToGigaChatIsolated(settings, functions, systemPrompt, isolatedHistory)
-                    Model.Api.HUGGINGFACE -> sendToHuggingFaceIsolated(settings, isolatedHistory)
+                    Model.Api.HUGGINGFACE -> sendToHuggingFaceIsolated(settings, functions, systemPrompt, isolatedHistory)
                 }
             }
 
@@ -681,17 +690,25 @@ $commandContextSection
      */
     private suspend fun sendToHuggingFaceIsolated(
         settings: AiSettings,
+        functions: List<GigaChatFunction>,
+        systemPrompt: String,
         isolatedHistory: List<Message>
     ): ChatResponse {
         val sanitizedHistory = isolatedHistory.map { imageProcessor.sanitizeMessageForApi(it) }
+
+        // Apply sliding window with summarization
+        val windowResult = contextManager.applyWindow(sanitizedHistory)
+
         return huggingFaceApi.sendMessage(
             accessToken = BuildKonfig.HUGGINGFACE_API_TOKEN,
-            messages = sanitizedHistory,
+            messages = windowResult.messages,
             model = settings.model.id,
             temperature = settings.temperature,
             topP = settings.topP,
             maxTokens = settings.maxTokens,
-            repetitionPenalty = settings.repetitionPenalty
+            repetitionPenalty = settings.repetitionPenalty,
+            functions = functions.takeIf { it.isNotEmpty() },
+            systemPrompt = systemPrompt
         )
     }
 

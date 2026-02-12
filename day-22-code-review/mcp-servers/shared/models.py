@@ -25,6 +25,8 @@ class BaseTool:
     name: str = ""
     description: str = ""
     input_schema: dict = {}
+    few_shot_examples: list[dict] = []
+    negative_few_shot_examples: list[dict] = []
 
     async def execute(self, arguments: dict) -> ToolResult:
         """Execute the tool with given arguments."""
@@ -32,8 +34,13 @@ class BaseTool:
 
     def to_dict(self) -> dict:
         """Convert tool to MCP protocol format."""
-        return {
+        result = {
             "name": self.name,
             "description": self.description,
             "inputSchema": self.input_schema,
         }
+        if self.few_shot_examples:
+            result["fewShotExamples"] = self.few_shot_examples
+        if self.negative_few_shot_examples:
+            result["negativeFewShotExamples"] = self.negative_few_shot_examples
+        return result
