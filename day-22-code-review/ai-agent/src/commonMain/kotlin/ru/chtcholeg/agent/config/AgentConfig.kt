@@ -25,4 +25,13 @@ object AgentConfig {
 
     /** Maximum concurrent background agents */
     const val MAX_CONCURRENT_BACKGROUND = 5
+
+    /** Maximum characters for diff content in pre-fetched review data */
+    const val MAX_REVIEW_DIFF_CHARS = 12_000
+
+    /** Maximum characters per file content in pre-fetched review data */
+    const val MAX_REVIEW_FILE_CHARS = 3_000
+
+    /** Maximum total characters for all file contents combined in pre-fetched review data */
+    const val MAX_REVIEW_TOTAL_FILES_CHARS = 20_000
 }

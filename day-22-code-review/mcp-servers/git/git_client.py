@@ -455,7 +455,7 @@ class GitClient:
 
         owner, repo = await self._get_github_owner_repo()
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             resp = await client.get(
                 f"https://api.github.com/repos/{owner}/{repo}/pulls",
                 params={"state": state, "per_page": min(limit, 100)},
@@ -501,7 +501,7 @@ class GitClient:
 
         owner, repo = await self._get_github_owner_repo()
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             resp = await client.get(
                 f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}",
                 headers={
@@ -547,7 +547,7 @@ class GitClient:
 
         owner, repo = await self._get_github_owner_repo()
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             resp = await client.get(
                 f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}",
                 headers={
@@ -579,7 +579,7 @@ class GitClient:
 
         owner, repo = await self._get_github_owner_repo()
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             resp = await client.get(
                 f"https://api.github.com/repos/{owner}/{repo}/pulls/{pr_number}/files",
                 params={"per_page": 100},
@@ -621,7 +621,7 @@ class GitClient:
         if not self.github_token:
             raise ValueError("GitHub token is not configured")
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             resp = await client.get(
                 "https://api.github.com/user",
                 headers={

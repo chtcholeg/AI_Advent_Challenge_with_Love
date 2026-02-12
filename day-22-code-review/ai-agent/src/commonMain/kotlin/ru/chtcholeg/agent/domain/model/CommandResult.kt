@@ -13,13 +13,15 @@ sealed class CommandResult {
      * Command produced context that needs additional LLM processing.
      * The [context] is sent as system context, and [query] is the user's question.
      * When [enableTools] is true, MCP and local tools remain available.
-     * [excludeTools] optionally filters out tools by name (e.g. task_create during /review-pr).
+     * [excludeTools] optionally filters out tools by name.
+     * [includeTools] optionally restricts to ONLY these tools (whitelist, takes priority over excludeTools).
      */
     data class NeedsLlmProcessing(
         val context: String,
         val query: String,
         val enableTools: Boolean = false,
-        val excludeTools: List<String>? = null
+        val excludeTools: List<String>? = null,
+        val includeTools: List<String>? = null
     ) : CommandResult()
 
     /**
