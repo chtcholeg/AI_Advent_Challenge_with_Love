@@ -14,6 +14,9 @@ class ImageProcessor(private val json: Json = Json { ignoreUnknownKeys = true })
 
     companion object {
         private val BASE64_FIELD_NAMES = listOf("base64", "image", "image_data", "data", "screenshot")
+        private const val BASE64_SAMPLE_SIZE = 200
+        private const val BASE64_MIN_SAMPLE_SIZE = 100
+        private const val BASE64_VALIDITY_THRESHOLD = 0.95f
     }
 
     /**
@@ -33,7 +36,9 @@ class ImageProcessor(private val json: Json = Json { ignoreUnknownKeys = true })
                         .map { (key, value) -> "$key: ${value.toString().take(100)}" }
                         .joinToString(", ")
 
-                    return "[Image data received. ${if (otherFields.isNotEmpty()) "Other fields: $otherFields" else "The image is displayed to the user."}]"
+                    val compressionRatio = field.length / content.length
+
+                    return "[Image data received (compression: ${compressionRatio}x). ${if (otherFields.isNotEmpty()) "Other fields: $otherFields" else "The image is displayed to the user."}]"
                 }
             }
             null
@@ -158,9 +163,9 @@ class ImageProcessor(private val json: Json = Json { ignoreUnknownKeys = true })
      * Simple heuristic to check if a string looks like base64-encoded data.
      */
     fun looksLikeBase64(str: String): Boolean {
-        if (str.length < 100) return false
-        val sample = str.take(200)
+        if (str.length < BASE64_MIN_SAMPLE_SIZE) return false
+        val sample = str.take(BASE64_SAMPLE_SIZE)
         val validChars = sample.count { it.isLetterOrDigit() || it == '+' || it == '/' || it == '=' }
-        return validChars.toFloat() / sample.length > 0.95
+        return validChars.toFloat() / sample.length > BASE64_VALIDITY_THRESHOLD
     }
 }

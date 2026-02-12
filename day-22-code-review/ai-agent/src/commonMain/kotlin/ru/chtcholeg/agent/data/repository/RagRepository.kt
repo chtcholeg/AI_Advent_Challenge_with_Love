@@ -52,7 +52,6 @@ class RagRepository(
      * Embed the query and search for the most relevant chunks.
      */
     suspend fun getRelevantChunks(query: String, topK: Int = 5, threshold: Float = 0.3f): List<SearchResult> {
-        if (!indexLoaded) throw IllegalStateException("Index not loaded. Call loadIndex() first.")
         val embedding = embeddingService.generateEmbedding(query)
         return vectorStore.search(embedding, topK, threshold)
     }
@@ -168,9 +167,14 @@ class RagRepository(
      */
     fun formatChunksSummary(chunks: List<SearchResult>): String {
         if (chunks.isEmpty()) return ""
-        return chunks.joinToString("\n") { result ->
-            "  · ${result.chunk.metadata.source} [chunk ${result.chunk.metadata.chunkIndex}] sim=${"%.2f".format(result.similarity)}"
-        }
+        return chunks.joinToString("\n") { formatChunkLine(it) }
+    }
+
+    /**
+     * Format a single search result line (reusable helper).
+     */
+    private fun formatChunkLine(result: SearchResult): String {
+        return "  · ${result.chunk.metadata.source} [chunk ${result.chunk.metadata.chunkIndex}] sim=${"%.2f".format(result.similarity)}"
     }
 
     /**
@@ -182,7 +186,7 @@ class RagRepository(
         sb.appendLine("── Stage 1: Vector Search ──")
         sb.appendLine("Retrieved ${result.initialResults.size} candidate(s):")
         result.initialResults.forEach { r ->
-            sb.appendLine("  · ${r.chunk.metadata.source} [chunk ${r.chunk.metadata.chunkIndex}] sim=${"%.2f".format(r.similarity)}")
+            sb.appendLine(formatChunkLine(r))
         }
 
         sb.appendLine()
@@ -191,7 +195,7 @@ class RagRepository(
         sb.appendLine("Removed by score gap: ${result.removedByScoreGap}")
         sb.appendLine("Kept ${result.rerankedResults.size} result(s):")
         result.rerankedResults.forEach { r ->
-            sb.appendLine("  · ${r.chunk.metadata.source} [chunk ${r.chunk.metadata.chunkIndex}] sim=${"%.2f".format(r.similarity)}")
+            sb.appendLine(formatChunkLine(r))
         }
 
         return sb.toString().trimEnd()

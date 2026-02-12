@@ -310,7 +310,7 @@ $commandContextSection
         val allTools = mcpRepository.getAllTools()
         val availableTools = when {
             includeTools != null -> {
-                val filtered = allTools.filter { it.name in includeTools }
+                val filtered = allTools.filter { it.name !in includeTools }
                 if (filtered.isEmpty() && includeTools.isNotEmpty()) {
                     println("[AgentRepository] WARNING: includeTools=$includeTools resulted in empty tool list")
                 }
