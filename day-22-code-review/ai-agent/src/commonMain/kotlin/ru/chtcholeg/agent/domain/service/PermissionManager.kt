@@ -53,6 +53,15 @@ class PermissionManager {
         return PermissionResult.Allowed
     }
 
+    /**
+     * Check bash command permission using a three-tier security model:
+     * 1. Blacklist check: Block destructive commands (rm -rf, git push --force, etc.)
+     * 2. Whitelist check: Auto-approve safe read-only commands (git status, ls, etc.)
+     * 3. Default: Allow with warning for commands not in blacklist or whitelist
+     *
+     * @param arguments Tool arguments containing the command
+     * @return PermissionResult indicating allowed/denied with reason
+     */
     private fun checkBashPermission(arguments: JsonElement?): PermissionResult {
         val command = arguments?.jsonObject?.get("command")?.jsonPrimitive?.content
             ?: return PermissionResult.Allowed // can't check without command

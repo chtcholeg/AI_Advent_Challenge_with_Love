@@ -415,7 +415,7 @@ class AgentStore(
     private fun loadTools() {
         _state.update { it.copy(toolsLoading = true) }
 
-        coroutineScope.launch {
+        kotlinx.coroutines.GlobalScope.launch {
             loadToolsInternal()
         }
     }

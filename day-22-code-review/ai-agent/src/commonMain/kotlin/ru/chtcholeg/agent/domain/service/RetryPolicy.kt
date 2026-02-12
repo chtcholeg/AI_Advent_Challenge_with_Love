@@ -31,9 +31,7 @@ object RetryPolicy {
                 if (e.statusCode in RETRYABLE_STATUS_CODES) {
                     lastException = e
                     if (attempt < maxRetries) {
-                        val delayMs = initialDelayMs * (1L shl attempt) // exponential: 1s, 2s, 4s
-                        println("[RetryPolicy] Retrying after ${e.statusCode} error (attempt ${attempt + 1}/$maxRetries, delay ${delayMs}ms)")
-                        delay(delayMs)
+                        println("[RetryPolicy] Retrying after ${e.statusCode} error (attempt ${attempt + 1}/$maxRetries)")
                     }
                 } else {
                     throw e // non-retryable error
