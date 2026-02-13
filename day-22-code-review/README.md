@@ -1449,4 +1449,4 @@ This project includes the following documentation:
 
 ## Videos
 
-- https://disk.yandex.ru/i/NcNrUA_nwu2AoA
+- https://disk.yandex.ru/i/yHOSLfJtvShXLQ
