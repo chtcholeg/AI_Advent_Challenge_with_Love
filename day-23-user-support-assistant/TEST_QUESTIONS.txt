@@ -1,0 +1,168 @@
+# Test Questions for User Support Assistant (Day 23)
+
+## Quick Copy-Paste Questions for Testing
+
+### 1. Simple FAQ Questions (RAG only)
+
+Почему не работает авторизация?
+
+Как установить приложение на Android?
+
+Как запустить MCP сервер?
+
+Что такое RAG и как его использовать?
+
+Приложение работает медленно. Что делать?
+
+### 2. User Information (MCP only)
+
+Расскажи про пользователя user_001
+
+Покажи информацию о user_002
+
+Какие пользователи у нас есть?
+
+Покажи всех пользователей с планом Pro
+
+### 3. Ticket Information (MCP)
+
+Какие проблемы были у user_001?
+
+Покажи тикет ticket_001
+
+Покажи все открытые тикеты
+
+Найди тикеты про авторизацию
+
+Найди тикеты про MCP серверы
+
+### 4. Combined Requests (RAG + MCP)
+
+У пользователя user_001 проблема с авторизацией. Помоги решить.
+
+У user_002 ошибка при индексировании PDF. Что делать?
+
+User_003 не может подключиться к MCP серверу. В чем проблема?
+
+User_004 хочет настроить RAG. Помоги ему.
+
+### 5. Filtering and Search
+
+Покажи все открытые тикеты с высоким приоритетом
+
+Найди тикеты в категории authentication
+
+Покажи тикеты пользователя user_001
+
+Покажи все решенные тикеты
+
+Найди тикеты со статусом in_progress
+
+### 6. Updates
+
+Отметь тикет ticket_001 как решенный. Решение: пользователь обновил креденшелы и всё заработало.
+
+Отметь ticket_004 как решенный. Решение: пользователь проиндексировал документы командой из FAQ.
+
+Добавь заметку к ticket_002: попросил пользователя проверить версию JDK и обновить до 17+
+
+Обнови статус ticket_005 на in_progress
+
+### 7. Complex Scenarios
+
+Какие проблемы встречаются чаще всего?
+
+Какие пользователи наиболее активны?
+
+Покажи статистику по тикетам
+
+Найди пользователей с неактивным статусом
+
+### 8. Error Handling
+
+Расскажи про пользователя user_999
+
+Покажи тикет ticket_999
+
+Найди тикеты про несуществующую_категорию
+
+### 9. Multi-turn Conversations
+
+# Ask these questions sequentially to test context memory:
+
+Расскажи про user_001
+
+А какие у него тикеты?
+
+Помоги решить проблему с авторизацией
+
+Обнови статус первого тикета на in_progress
+
+### 10. Natural Language Variations
+
+# Same question, different phrasing:
+
+Почему не работает авторизация?
+Проблема с авторизацией
+Не могу войти в систему
+Ошибка "Invalid credentials"
+
+# User questions:
+
+У Ивана проблема с авторизацией
+Проблема у user_001
+Пользователь с ID user_001 пишет про ошибку
+
+---
+
+## How to Use
+
+1. Copy a question from above
+2. Paste into AI Agent chat
+3. Observe the response
+4. Check that:
+   - RAG finds relevant info
+   - MCP tools are called
+   - Response is personalized
+   - Answer is helpful
+
+## Expected Behavior
+
+### For FAQ questions:
+- Should cite source document (e.g., "support-docs/faq/authentication.md")
+- Should provide step-by-step solution
+- Should include code examples if relevant
+
+### For MCP questions:
+- Should call appropriate MCP tool
+- Should show data from CRM
+- Should format output nicely
+
+### For combined questions:
+- Should use both RAG and MCP
+- Should personalize based on user context
+- Should mention user's name, plan, tickets
+- Should be friendly and helpful
+
+## Quick Test Checklist
+
+After testing, verify:
+
+[ ] RAG finds info in all 5 FAQ documents
+[ ] All 7 MCP tools work correctly
+[ ] Combined queries use both RAG and MCP
+[ ] User context is preserved in conversation
+[ ] Error handling works (non-existent IDs)
+[ ] Ticket updates persist to JSON file
+[ ] Response tone is friendly and professional
+[ ] Solutions are clear and actionable
+[ ] Code examples are formatted correctly
+[ ] Citations include document references
+
+## Performance Expectations
+
+- Simple FAQ: < 3 seconds
+- MCP query: < 2 seconds
+- Combined (RAG+MCP): < 5 seconds
+- No errors or crashes
+- Consistent quality across multiple queries

@@ -1,0 +1,92 @@
+[
+  {
+    "id": "ticket_001",
+    "userId": "user_001",
+    "subject": "Не работает авторизация",
+    "description": "При попытке войти в приложение получаю ошибку 'Invalid credentials'. Проверил креденшелы - они правильные. Пробовал очистить кеш - не помогло.",
+    "status": "open",
+    "priority": "high",
+    "category": "authentication",
+    "created": "2026-02-14T10:30:00Z",
+    "updated": "2026-02-14T10:30:00Z",
+    "assignedTo": "support_team"
+  },
+  {
+    "id": "ticket_002",
+    "userId": "user_002",
+    "subject": "Ошибка при индексировании документов",
+    "description": "Пытаюсь проиндексировать PDF файлы, но получаю ошибку 'Failed to parse PDF'. Файлы не защищены паролем.",
+    "status": "in_progress",
+    "priority": "medium",
+    "category": "indexing",
+    "created": "2026-02-13T15:20:00Z",
+    "updated": "2026-02-14T09:15:00Z",
+    "assignedTo": "support_team",
+    "notes": "Попросил пользователя проверить версию JDK. Ожидаю ответа."
+  },
+  {
+    "id": "ticket_003",
+    "userId": "user_003",
+    "subject": "MCP сервер не отвечает",
+    "description": "Запустил Git MCP сервер через ./START.sh, но AI Agent не может к нему подключиться. Ошибка: 'Connection refused'.",
+    "status": "resolved",
+    "priority": "high",
+    "category": "mcp",
+    "created": "2026-02-12T11:45:00Z",
+    "updated": "2026-02-13T14:30:00Z",
+    "assignedTo": "support_team",
+    "resolution": "Проблема была в том, что firewall блокировал порт 8080. Пользователь изменил порт на 8081 и всё заработало.",
+    "resolvedAt": "2026-02-13T14:30:00Z"
+  },
+  {
+    "id": "ticket_004",
+    "userId": "user_004",
+    "subject": "Как настроить RAG для своей документации?",
+    "description": "Хочу использовать RAG с нашей внутренней документацией. Как правильно проиндексировать документы и настроить AI Agent?",
+    "status": "open",
+    "priority": "low",
+    "category": "features",
+    "created": "2026-02-14T08:00:00Z",
+    "updated": "2026-02-14T08:00:00Z",
+    "assignedTo": "support_team"
+  },
+  {
+    "id": "ticket_005",
+    "userId": "user_001",
+    "subject": "Приложение работает медленно",
+    "description": "После обновления до последней версии приложение стало заметно медленнее. Особенно долго загружается список сессий.",
+    "status": "open",
+    "priority": "medium",
+    "category": "performance",
+    "created": "2026-02-14T09:45:00Z",
+    "updated": "2026-02-14T09:45:00Z",
+    "assignedTo": "support_team"
+  },
+  {
+    "id": "ticket_006",
+    "userId": "user_005",
+    "subject": "Ошибка сборки после обновления креденшелов",
+    "description": "Обновил креденшелы в local.properties, но при сборке получаю ошибку 'BuildKonfig secrets not found'.",
+    "status": "resolved",
+    "priority": "medium",
+    "category": "build",
+    "created": "2026-02-10T16:20:00Z",
+    "updated": "2026-02-11T10:00:00Z",
+    "assignedTo": "support_team",
+    "resolution": "Пользователю нужно было выполнить './gradlew clean build' после изменения креденшелов.",
+    "resolvedAt": "2026-02-11T10:00:00Z"
+  },
+  {
+    "id": "ticket_007",
+    "userId": "user_002",
+    "subject": "Не приходят напоминания в Telegram",
+    "description": "Настроил Telegram Bot Token и Chat ID, но напоминания не приходят. В логах нет ошибок.",
+    "status": "in_progress",
+    "priority": "medium",
+    "category": "features",
+    "created": "2026-02-13T12:30:00Z",
+    "updated": "2026-02-14T11:00:00Z",
+    "assignedTo": "support_team",
+    "notes": "Проверяю конфигурацию Telegram бота. Возможно, бот не имеет прав на отправку сообщений."
+  }
+]

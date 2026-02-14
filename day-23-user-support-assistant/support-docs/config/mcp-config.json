@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "crm": {
+      "command": "python",
+      "args": ["-m", "crm.main"],
+      "cwd": "./mcp-servers",
+      "env": {},
+      "description": "CRM MCP Server - provides access to user and ticket data"
+    }
+  }
+}

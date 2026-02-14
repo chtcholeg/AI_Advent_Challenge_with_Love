@@ -1,0 +1,105 @@
+# Day 23: User Support Assistant - Project Structure
+
+## Root Files
+./QUICK_START.sh              # Automated setup script
+./README_DAY_23.md            # Quick reference
+./DAY_23_SUMMARY.md           # Complete implementation summary
+./TEST_QUESTIONS.txt          # Ready-to-use test questions
+./support-index.json          # Generated after indexing (not in repo)
+
+## Documentation (support-docs/)
+support-docs/
+├── DAY_23_README.md          # Full project overview
+├── SETUP_GUIDE.md            # Step-by-step setup (8 steps)
+├── USAGE_GUIDE.md            # Examples and best practices
+├── TEST_SCENARIOS.md         # 10 test scenarios
+│
+├── config/                   # Configuration files
+│   ├── support-assistant-prompt.md  # System Prompt
+│   └── mcp-config.json       # MCP server configuration
+│
+└── faq/                      # FAQ for RAG (5 documents)
+    ├── authentication.md     # Auth problems and solutions
+    ├── installation.md       # Install and run guide
+    ├── mcp-servers.md        # MCP setup and troubleshooting
+    ├── features.md           # App features usage
+    └── errors.md             # Common errors and fixes
+
+## CRM MCP Server (mcp-servers/crm/)
+mcp-servers/crm/
+├── main.py                   # MCP server implementation
+├── START.sh                  # Quick start script
+├── README.md                 # Server documentation
+├── __init__.py
+└── data/
+    ├── users.json            # 5 test users
+    └── tickets.json          # 7 test tickets
+
+## File Counts
+- Markdown docs: 11 files
+- Python files: 2 files
+- JSON data: 2 files
+- Shell scripts: 2 files
+- Config files: 2 files
+Total: 19 files (~3400 lines)
+
+## Components Summary
+
+### 1. FAQ Documentation (RAG)
+Location: support-docs/faq/
+Files: 5 markdown files
+Size: ~1000 lines
+Purpose: Knowledge base for RAG system
+
+### 2. CRM MCP Server
+Location: mcp-servers/crm/
+Files: main.py (~400 lines)
+Tools: 7 MCP tools
+Data: 5 users, 7 tickets
+Purpose: CRM integration via MCP protocol
+
+### 3. Documentation
+Location: support-docs/
+Files: 6 markdown files (~2000 lines)
+Purpose: Setup, usage, testing guides
+
+### 4. Configuration
+Location: support-docs/config/
+Files: System Prompt + MCP config
+Purpose: AI Agent configuration
+
+### 5. Tools & Scripts
+Files: QUICK_START.sh, START.sh
+Purpose: Automated setup and testing
+
+## Usage Flow
+
+1. QUICK_START.sh
+   ↓
+2. Index FAQ → support-index.json
+   ↓
+3. Start CRM MCP Server
+   ↓
+4. Configure AI Agent
+   ↓
+5. Test with TEST_QUESTIONS.txt
+
+## Documentation Flow
+
+1. Start: README_DAY_23.md (overview)
+2. Setup: SETUP_GUIDE.md (detailed setup)
+3. Usage: USAGE_GUIDE.md (examples)
+4. Test: TEST_SCENARIOS.md (scenarios)
+5. Summary: DAY_23_SUMMARY.md (complete)
+
+## Key Metrics
+
+FAQ Documents:        5
+MCP Tools:           7
+Test Users:          5
+Test Tickets:        7
+Test Scenarios:     10
+Documentation:       6 guides
+Total Lines:     ~3400
+Setup Time:      ~5 minutes
+Test Time:      ~10 minutes
