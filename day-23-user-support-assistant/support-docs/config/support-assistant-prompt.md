@@ -1,5 +1,9 @@
 # System Prompt для User Support Assistant
 
+> **Примечание:** Этот промпт встроен в код AI Agent (`CommandHandler.SUPPORT_ASSISTANT_PROMPT`).
+> Команда `/support` использует встроенную версию для работы на всех платформах (Android/Desktop).
+> Данный файл служит для документации и синхронизации при обновлении промпта.
+
 Используйте этот промпт в AI Agent для режима техподдержки.
 
 ## Prompt

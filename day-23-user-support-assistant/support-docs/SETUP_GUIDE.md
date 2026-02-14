@@ -108,26 +108,27 @@ ollama pull nomic-embed-text
    - Output: `support-index.json`
    - Нажмите "Start Indexing"
 
-## Шаг 3: Настройка CRM MCP Server
+## Шаг 3: Запуск MCP Servers
 
-1. Установите зависимости:
+Теперь MCP серверы работают по HTTP/SSE транспорту, как Git MCP Server.
+
+### Быстрый старт (Git + CRM)
 ```bash
 cd mcp-servers
-pip install -r requirements.txt
+./START.sh
 ```
 
-2. Проверьте данные:
-```bash
-ls crm/data/
-# Должны быть: users.json, tickets.json
-```
+Это запустит оба сервера:
+- **Git MCP Server** на `http://localhost:8010/sse`
+- **CRM MCP Server** на `http://localhost:8011/sse`
 
-3. Протестируйте сервер:
-```bash
-cd mcp-servers
-python -m crm.main
-# Нажмите Ctrl+C для выхода
-```
+### Проверка работы
+
+Откройте в браузере:
+- Git MCP: http://localhost:8010/health
+- CRM MCP: http://localhost:8011/health
+
+Должны увидеть `{"status":"healthy", ...}`
 
 ## Шаг 4: Конфигурация AI Agent
 
@@ -138,22 +139,24 @@ mkdir -p ~/.ai-agent
 cp support-docs/config/mcp-config.json ~/.ai-agent/
 ```
 
-### 4.2 Отредактируйте пути (если нужно)
-
-Откройте `~/.ai-agent/mcp-config.json` и убедитесь, что путь правильный:
+Конфигурация использует HTTP/SSE транспорт:
 
 ```json
 {
   "mcpServers": {
+    "git": {
+      "url": "http://localhost:8010/sse",
+      "transport": "sse"
+    },
     "crm": {
-      "command": "python",
-      "args": ["-m", "crm.main"],
-      "cwd": "/полный/путь/к/mcp-servers",
-      "env": {}
+      "url": "http://localhost:8011/sse",
+      "transport": "sse"
     }
   }
 }
 ```
+
+Никаких дополнительных изменений не требуется!
 
 ## Шаг 5: Настройка System Prompt
 
@@ -181,14 +184,21 @@ cp support-docs/config/mcp-config.json ~/.ai-agent/
 
 ## Шаг 7: Включение MCP
 
-1. В AI Agent Settings:
-   - MCP Servers → Enable "crm"
-   - Проверьте статус подключения
-
-2. Если статус "Disconnected":
-   - Запустите MCP сервер вручную в отдельном терминале:
+1. Убедитесь, что MCP серверы запущены:
    ```bash
-   cd mcp-servers/crm
+   curl http://localhost:8010/health  # Git MCP
+   curl http://localhost:8011/health  # CRM MCP
+   ```
+
+2. В AI Agent Settings:
+   - MCP Servers → Enable "git"
+   - MCP Servers → Enable "crm"
+   - Проверьте статус подключения (должно быть "Connected")
+
+3. Если статус "Disconnected":
+   - Перезапустите MCP серверы:
+   ```bash
+   cd mcp-servers
    ./START.sh
    ```
 
@@ -278,15 +288,24 @@ ls -lh support-index.json
 **Проблема:** "CRM MCP Server disconnected"
 
 **Решение:**
-1. Запустите сервер вручную:
+1. Проверьте, что серверы запущены:
 ```bash
-cd mcp-servers/crm
+curl http://localhost:8011/health
+```
+
+2. Проверьте логи:
+```bash
+tail -f /tmp/crm-mcp.log
+tail -f /tmp/git-mcp.log
+```
+
+3. Перезапустите серверы:
+```bash
+cd mcp-servers
 ./START.sh
 ```
 
-2. Проверьте логи в терминале
-
-3. Убедитесь, что путь в `~/.ai-agent/mcp-config.json` правильный
+4. Убедитесь, что в `~/.ai-agent/mcp-config.json` указаны правильные URL
 
 ### Агент не использует MCP tools
 

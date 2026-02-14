@@ -2,6 +2,8 @@
 
 MCP сервер для интеграции AI-агента с CRM системой (пользователи и тикеты техподдержки).
 
+**Транспорт:** HTTP/SSE (порт 8011)
+
 ## Возможности
 
 ### Инструменты (Tools)
@@ -64,7 +66,17 @@ ls crm/data/
 
 ## Запуск
 
-### Быстрый старт
+### Быстрый старт (вместе с Git MCP)
+```bash
+cd mcp-servers
+./START.sh
+```
+
+Это запустит оба сервера:
+- Git MCP Server на порту 8010
+- CRM MCP Server на порту 8011
+
+### Запуск только CRM
 ```bash
 cd mcp-servers/crm
 ./START.sh
@@ -73,8 +85,14 @@ cd mcp-servers/crm
 ### Ручной запуск
 ```bash
 cd mcp-servers
-python -m crm.main
+python -m crm.main --no-auth
 ```
+
+Параметры:
+- `--host` - хост (по умолчанию 0.0.0.0)
+- `--port` - порт (по умолчанию 8011)
+- `--no-auth` - отключить аутентификацию
+- `--data-dir` - путь к данным (по умолчанию ./crm/data)
 
 ## Использование в AI Agent
 
@@ -86,13 +104,17 @@ python -m crm.main
 {
   "mcpServers": {
     "crm": {
-      "command": "python",
-      "args": ["-m", "crm.main"],
-      "cwd": "/path/to/mcp-servers",
-      "env": {}
+      "url": "http://localhost:8011/sse",
+      "transport": "sse",
+      "description": "CRM MCP Server - provides access to user and ticket data"
     }
   }
 }
+```
+
+Или скопируйте готовую конфигурацию:
+```bash
+cp support-docs/config/mcp-config.json ~/.ai-agent/
 ```
 
 ### 2. Запустите AI Agent

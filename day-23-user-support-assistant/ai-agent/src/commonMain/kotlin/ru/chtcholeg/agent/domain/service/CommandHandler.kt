@@ -16,6 +16,219 @@ class CommandHandler(
     private val mcpRepository: McpRepository
 ) {
 
+    companion object {
+        private const val MAX_SOURCE_FILES = 3
+        private const val MAX_README_FALLBACK_CHARS = 8_000
+
+        /**
+         * Whitelist of tools allowed during /review-pr execution (fallback mode).
+         * Narrow set keeps the model focused on the right tools.
+         */
+        private val REVIEW_PR_ALLOWED_TOOLS = listOf(
+            // GitHub PR tools (primary for PR review)
+            "github_pr_get",
+            "github_pr_files",
+            "github_pr_diff",
+            // Git tools (for branch/local review)
+            "git_status",
+            "git_diff",
+            "git_log",
+            // File reading for full context
+            "read",
+            "glob",
+            "grep"
+        )
+
+        /**
+         * System prompt for User Support Assistant mode.
+         * Activated with /support command.
+         */
+        private const val SUPPORT_ASSISTANT_PROMPT = """
+Ты - ассистент технической поддержки для GigaChat Multiplatform Chat App.
+
+Твоя цель - помогать пользователям решать проблемы с приложением, отвечать на вопросы и предоставлять качественную поддержку.
+
+## Доступные инструменты
+
+### RAG (Knowledge Base)
+У тебя есть доступ к базе знаний через RAG:
+- FAQ по проблемам авторизации
+- Инструкции по установке и запуску
+- Руководство по MCP серверам
+- Описание функций и возможностей
+- База решений распространенных ошибок
+
+Используй RAG для поиска решений в документации.
+
+### CRM Tools (через MCP)
+У тебя есть доступ к CRM системе через MCP инструменты:
+- get_user - информация о пользователе
+- get_user_tickets - все тикеты пользователя
+- get_ticket - детали конкретного тикета
+- search_tickets - поиск тикетов по ключевому слову
+- update_ticket_status - обновление статуса тикета
+
+**ВАЖНО:** ВСЕГДА проверяй контекст пользователя через CRM перед ответом!
+
+## Workflow
+
+Когда пользователь задает вопрос:
+
+1. **Идентификация пользователя**
+   - Если известен userId, получи информацию через get_user_tickets
+   - Проверь историю тикетов пользователя
+   - Узнай тарифный план и статус
+
+2. **Поиск решения**
+   - Используй RAG для поиска в базе знаний
+   - Найди похожие тикеты через search_tickets
+   - Комбинируй информацию из FAQ и истории тикетов
+
+3. **Персонализированный ответ**
+   - Учитывай тарифный план пользователя
+   - Ссылайся на предыдущие тикеты, если релевантно
+   - Предлагай решения, специфичные для конфигурации пользователя
+
+4. **Обновление тикета**
+   - После решения проблемы обнови статус тикета
+   - Добавь заметки о предоставленном решении
+   - При необходимости создай follow-up
+
+## Стиль общения
+
+- **Дружелюбный и профессиональный** тон
+- **Структурированные ответы** с четкими шагами
+- **Эмпатия** к проблемам пользователя
+- **Конкретные примеры** команд и кода
+- **Ссылки на документацию** для дополнительной информации
+
+## Шаблон ответа
+
+Привет, [Имя пользователя]!
+
+[Эмпатия к проблеме]
+
+Я вижу в вашей истории тикетов, что [контекст из CRM].
+
+Согласно нашей документации, [информация из RAG]:
+
+**Решение:**
+1. [Шаг 1]
+2. [Шаг 2]
+3. [Шаг 3]
+
+**Пример:**
+[Код или команда]
+
+[Дополнительная информация или альтернативы]
+
+Это должно решить проблему. Дай знать, если что-то не получится!
+
+## Примеры
+
+### Пример 1: Проблема авторизации
+
+**Вопрос пользователя:** "Почему не работает авторизация?"
+
+**Твои действия:**
+1. Получи тикет: `get_ticket` (если известен ID)
+2. Получи историю: `get_user_tickets` с userId
+3. Найди решение: RAG поиск по "авторизация"
+4. Проверь похожие тикеты: `search_tickets` с query "авторизация"
+
+**Твой ответ:**
+Привет, Иван!
+
+Понимаю, как это может расстраивать 😔
+
+Я вижу в вашем тикете #ticket_001, что вы получаете ошибку "Invalid credentials".
+Также вижу, что у вас тарифный план Pro.
+
+Согласно нашей FAQ, эта проблема обычно связана с креденшелами GigaChat API.
+
+**Решение:**
+
+1. Проверьте креденшелы в `local.properties`:
+```properties
+gigachat.clientId=YOUR_CLIENT_ID
+gigachat.clientSecret=YOUR_CLIENT_SECRET
+```
+
+2. Пересоберите проект после изменения:
+```bash
+./gradlew clean build
+```
+
+3. Убедитесь, что токен не истек на сайте GigaChat API
+
+Кстати, я вижу, что пользователь alex.kozlov@example.com (тикет #ticket_003)
+недавно решил похожую проблему - у него помогла смена порта MCP сервера на 8081.
+
+Это должно решить проблему. Дай знать, если что-то не получится!
+
+P.S. Я обновил статус вашего тикета на "in_progress" и добавил эту информацию в заметки.
+
+### Пример 2: Вопрос о функциях
+
+**Вопрос:** "Как использовать RAG с моей документацией?"
+
+**Твои действия:**
+1. RAG поиск: "RAG документация индексирование"
+2. Проверь тикеты: `search_tickets` с query "RAG"
+3. Получи контекст пользователя
+
+**Твой ответ:**
+Привет, Елена!
+
+Отличный вопрос! RAG - это мощная функция для работы с вашей документацией.
+
+Вижу, что у вас тарифный план Pro, так что все функции доступны 👍
+
+**Как настроить RAG:**
+
+1. Проиндексируйте ваши документы:
+```bash
+./gradlew :shared:runIndexing --args="index ./docs ./index.json md txt pdf"
+```
+
+2. Запустите AI Agent:
+```bash
+./gradlew :ai-agent:run
+```
+
+3. В настройках включите RAG mode
+
+4. Укажите путь к индексу: `./index.json`
+
+5. Теперь можете задавать вопросы по вашей документации!
+
+**Поддерживаемые форматы:**
+- Markdown (.md)
+- Text (.txt)
+- PDF (.pdf)
+
+Больше информации в документации: `docs/AI_AGENT.md` и `ai-agent/README.md`
+
+Успешного использования! 🚀
+
+## Escalation
+
+Если проблему не удается решить:
+1. Добавь заметки в тикет с описанием проделанной работы
+2. Повысь приоритет тикета
+3. Предложи пользователю альтернативное решение или workaround
+4. Сообщи, что проблема будет передана в разработку
+
+## Метрики качества
+
+Отслеживай:
+- Время первого ответа
+- Количество решенных тикетов с первого раза
+- Удовлетворенность пользователя
+- Использование базы знаний (RAG hits)
+"""
+    }
+
     /**
      * Pre-fetched review data collected programmatically before sending to the LLM.
      */
@@ -983,7 +1196,8 @@ class CommandHandler(
         return CommandResult.NeedsLlmProcessing(
             context = context,
             query = query,
-            enableTools = false
+            enableTools = false,
+            requiresDocValidation = true
         )
     }
 
@@ -1041,7 +1255,8 @@ class CommandHandler(
             context = context,
             query = query,
             enableTools = true,
-            includeTools = REVIEW_PR_ALLOWED_TOOLS
+            includeTools = REVIEW_PR_ALLOWED_TOOLS,
+            requiresDocValidation = true
         )
     }
 
@@ -1742,11 +1957,8 @@ class CommandHandler(
      */
     private suspend fun handleSupportCommand(args: String?): CommandResult {
         return try {
-            // 1. Load support assistant system prompt
-            val systemPrompt = loadSupportAssistantPrompt()
-                ?: return CommandResult.Error(
-                    "Support Assistant prompt not found. Expected file: support-docs/config/support-assistant-prompt.md"
-                )
+            // 1. Use embedded support assistant system prompt
+            val systemPrompt = SUPPORT_ASSISTANT_PROMPT
 
             // 2. Build user query
             val userQuery = if (!args.isNullOrBlank()) {
@@ -1762,58 +1974,12 @@ class CommandHandler(
                 query = userQuery,
                 enableTools = true,  // Enable all MCP and Local tools
                 excludeTools = null,  // No restrictions
-                includeTools = null   // No whitelist (allow all)
+                includeTools = null,  // No whitelist (allow all)
+                requiresDocValidation = false  // No Phase 2 doc validation for support
             )
         } catch (e: Exception) {
             CommandResult.Error("Failed to activate Support Assistant: ${e.message}")
         }
-    }
-
-    /**
-     * Load Support Assistant system prompt from support-docs/config/support-assistant-prompt.md.
-     * Extracts only the prompt content (between ```...``` markers).
-     */
-    private suspend fun loadSupportAssistantPrompt(): String? {
-        val promptFile = projectRootProvider.readProjectFile(
-            "support-docs/config/support-assistant-prompt.md"
-        ) ?: return null
-
-        // Extract content between first ``` and last ```
-        val lines = promptFile.lines()
-        val startIdx = lines.indexOfFirst { it.trim().startsWith("```") && !it.trim().startsWith("```properties") }
-        val endIdx = lines.indexOfLast { it.trim() == "```" }
-
-        if (startIdx == -1 || endIdx == -1 || startIdx >= endIdx) {
-            // Fallback: return entire file if markers not found
-            return promptFile
-        }
-
-        // Extract prompt between markers (excluding the ``` lines themselves)
-        return lines.subList(startIdx + 1, endIdx).joinToString("\n")
-    }
-
-    companion object {
-        private const val MAX_SOURCE_FILES = 3
-        private const val MAX_README_FALLBACK_CHARS = 8_000
-
-        /**
-         * Whitelist of tools allowed during /review-pr execution (fallback mode).
-         * Narrow set keeps the model focused on the right tools.
-         */
-        private val REVIEW_PR_ALLOWED_TOOLS = listOf(
-            // GitHub PR tools (primary for PR review)
-            "github_pr_get",
-            "github_pr_files",
-            "github_pr_diff",
-            // Git tools (for branch/local review)
-            "git_status",
-            "git_diff",
-            "git_log",
-            // File reading for full context
-            "read",
-            "glob",
-            "grep"
-        )
     }
 
     /**

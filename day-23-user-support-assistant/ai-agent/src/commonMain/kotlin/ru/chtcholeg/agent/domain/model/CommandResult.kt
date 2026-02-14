@@ -15,13 +15,15 @@ sealed class CommandResult {
      * When [enableTools] is true, MCP and local tools remain available.
      * [excludeTools] optionally filters out tools by name.
      * [includeTools] optionally restricts to ONLY these tools (whitelist, takes priority over excludeTools).
+     * [requiresDocValidation] when true, enables Phase 2 RAG documentation validation (for /review-pr).
      */
     data class NeedsLlmProcessing(
         val context: String,
         val query: String,
         val enableTools: Boolean = false,
         val excludeTools: List<String>? = null,
-        val includeTools: List<String>? = null
+        val includeTools: List<String>? = null,
+        val requiresDocValidation: Boolean = false
     ) : CommandResult()
 
     /**

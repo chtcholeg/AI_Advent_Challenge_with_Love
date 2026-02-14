@@ -1,8 +1,8 @@
 #!/bin/bash
-# Quick start script for Git MCP Server
+# Multi-server start script for all MCP servers
 
-echo "🚀 Git MCP Server - Quick Start"
-echo "================================"
+echo "🚀 MCP Servers - Multi-Server Start"
+echo "===================================="
 echo ""
 
 # Check Python version
@@ -14,7 +14,7 @@ fi
 PYTHON_VERSION=$(python3 --version | awk '{print $2}')
 echo "✓ Python $PYTHON_VERSION found"
 
-# Check Git
+# Check Git (for Git MCP Server)
 if ! command -v git &> /dev/null; then
     echo "❌ Git is required but not found"
     exit 1
@@ -39,7 +39,17 @@ source venv/bin/activate
 if [ ! -f "venv/.installed" ]; then
     echo "📥 Installing dependencies..."
     pip install -q --upgrade pip
-    pip install -q -e .
+
+    # Install Git MCP Server
+    if [ -f "setup.py" ]; then
+        pip install -q -e .
+    fi
+
+    # Install CRM MCP Server dependencies
+    if [ -f "requirements.txt" ]; then
+        pip install -q -r requirements.txt
+    fi
+
     touch venv/.installed
     echo "✓ Dependencies installed"
 else
@@ -47,11 +57,12 @@ else
 fi
 
 echo ""
-echo "================================"
+echo "===================================="
 echo "🎉 Setup complete!"
-echo "================================"
+echo "===================================="
 echo ""
-# Auto-detect git repo path: use GIT_REPO_PATH if set, otherwise find the repo root
+
+# Auto-detect git repo path
 if [ -z "$GIT_REPO_PATH" ]; then
     SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
     GIT_REPO_PATH="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null)"
@@ -62,9 +73,25 @@ if [ -z "$GIT_REPO_PATH" ]; then
     export GIT_REPO_PATH
 fi
 
-echo "Starting Git MCP Server..."
-echo "Repository: $GIT_REPO_PATH"
-echo "URL: http://localhost:8010/sse"
+# CRM data directory
+CRM_DATA_DIR="$SCRIPT_DIR/crm/data"
+
+# Check CRM data files
+if [ ! -f "$CRM_DATA_DIR/users.json" ] || [ ! -f "$CRM_DATA_DIR/tickets.json" ]; then
+    echo "❌ CRM data files not found!"
+    echo "   Expected: $CRM_DATA_DIR/users.json, $CRM_DATA_DIR/tickets.json"
+    exit 1
+fi
+
+echo "Starting MCP Servers:"
+echo ""
+echo "1. Git MCP Server"
+echo "   Repository: $GIT_REPO_PATH"
+echo "   URL: http://localhost:8010/sse"
+echo ""
+echo "2. CRM MCP Server"
+echo "   Data: $CRM_DATA_DIR"
+echo "   URL: http://localhost:8011/sse"
 echo ""
 
 # GitHub token info
@@ -76,8 +103,49 @@ else
 fi
 
 echo ""
-echo "Press Ctrl+C to stop"
+echo "Press Ctrl+C to stop all servers"
+echo ""
+echo "===================================="
 echo ""
 
-# Start server
-python -m git.main --repo-path "$GIT_REPO_PATH"
+# Function to cleanup background processes
+cleanup() {
+    echo ""
+    echo "Shutting down servers..."
+    kill $(jobs -p) 2>/dev/null
+    wait
+    echo "All servers stopped."
+    exit 0
+}
+
+trap cleanup SIGINT SIGTERM
+
+# Start Git MCP Server in background
+echo "[Git MCP] Starting on port 8010..."
+python -m git.main --repo-path "$GIT_REPO_PATH" --no-auth > /tmp/git-mcp.log 2>&1 &
+GIT_PID=$!
+
+# Wait a bit for Git server to start
+sleep 2
+
+# Start CRM MCP Server in background
+echo "[CRM MCP] Starting on port 8011..."
+python -m crm.main --no-auth > /tmp/crm-mcp.log 2>&1 &
+CRM_PID=$!
+
+# Wait a bit for CRM server to start
+sleep 2
+
+echo ""
+echo "✓ Servers started!"
+echo ""
+echo "Git MCP Server: http://localhost:8010 (PID: $GIT_PID)"
+echo "CRM MCP Server: http://localhost:8011 (PID: $CRM_PID)"
+echo ""
+echo "Logs:"
+echo "  tail -f /tmp/git-mcp.log"
+echo "  tail -f /tmp/crm-mcp.log"
+echo ""
+
+# Wait for all background processes
+wait

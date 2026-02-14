@@ -270,11 +270,11 @@ class AgentStore(
                 _state.update { it.copy(messages = it.messages + toolResponses) }
                 chatHistoryRepository.saveMessages(sessionId, toolResponses)
 
-                // === PHASE 2: Enhance review with RAG documentation (if available) ===
-                // If RAG index is configured, load project documentation and validate
-                // code changes against documented standards, patterns, and conventions.
+                // === PHASE 2: Enhance review with RAG documentation (if requested and available) ===
+                // If command requires doc validation (e.g., /review-pr) and RAG index is configured,
+                // load project documentation and validate code changes against standards.
                 val (ragContext, currentSources) = loadRagContext(result.query, sessionId)
-                if (ragContext != null) {
+                if (result.requiresDocValidation && ragContext != null) {
                     val ragStatusMessage = AgentMessage(
                         content = "Phase 2/2: Enhancing review with project documentation...",
                         type = MessageType.RAG_CONTEXT

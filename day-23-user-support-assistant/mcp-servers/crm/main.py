@@ -1,60 +1,70 @@
 #!/usr/bin/env python3
 """
-CRM MCP Server
+CRM MCP Server - HTTP/SSE transport
 Provides access to user and ticket data for support assistant
 """
 
+import argparse
+import asyncio
 import json
-import os
-from pathlib import Path
-from typing import Any, Sequence
+import logging
+import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Optional
 
-from mcp.server import Server
-from mcp.types import Tool, TextContent
-import mcp.server.stdio
+import sys
+sys.path.append(str(Path(__file__).parent.parent))
 
+from fastapi import FastAPI, Request, HTTPException, Header
+from fastapi.responses import StreamingResponse
 
-# Paths to data files
-DATA_DIR = Path(__file__).parent / "data"
-USERS_FILE = DATA_DIR / "users.json"
-TICKETS_FILE = DATA_DIR / "tickets.json"
+from . import config
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+# Global state
+sessions: dict[str, dict] = {}
+
+# Authentication flag
+AUTH_ENABLED = not config.NO_AUTH and bool(config.CRM_API_KEY)
 
 
 def load_users() -> list[dict[str, Any]]:
     """Load users from JSON file"""
-    if not USERS_FILE.exists():
+    if not config.USERS_FILE.exists():
         return []
-    with open(USERS_FILE, 'r', encoding='utf-8') as f:
+    with open(config.USERS_FILE, 'r', encoding='utf-8') as f:
         return json.load(f)
 
 
 def load_tickets() -> list[dict[str, Any]]:
     """Load tickets from JSON file"""
-    if not TICKETS_FILE.exists():
+    if not config.TICKETS_FILE.exists():
         return []
-    with open(TICKETS_FILE, 'r', encoding='utf-8') as f:
+    with open(config.TICKETS_FILE, 'r', encoding='utf-8') as f:
         return json.load(f)
 
 
 def save_tickets(tickets: list[dict[str, Any]]) -> None:
     """Save tickets to JSON file"""
-    with open(TICKETS_FILE, 'w', encoding='utf-8') as f:
+    with open(config.TICKETS_FILE, 'w', encoding='utf-8') as f:
         json.dump(tickets, f, ensure_ascii=False, indent=2)
 
 
-# Create MCP server
-app = Server("crm-server")
-
-
-@app.list_tools()
-async def list_tools() -> list[Tool]:
-    """List available CRM tools"""
+def get_tools_list() -> list[dict]:
+    """Get list of available CRM tools"""
     return [
-        Tool(
-            name="get_user",
-            description="Get user information by ID",
-            inputSchema={
+        {
+            "name": "get_user",
+            "description": "Get user information by ID",
+            "inputSchema": {
                 "type": "object",
                 "properties": {
                     "user_id": {
@@ -64,11 +74,11 @@ async def list_tools() -> list[Tool]:
                 },
                 "required": ["user_id"]
             }
-        ),
-        Tool(
-            name="list_users",
-            description="List all users with optional filtering",
-            inputSchema={
+        },
+        {
+            "name": "list_users",
+            "description": "List all users with optional filtering",
+            "inputSchema": {
                 "type": "object",
                 "properties": {
                     "status": {
@@ -83,11 +93,11 @@ async def list_tools() -> list[Tool]:
                     }
                 }
             }
-        ),
-        Tool(
-            name="get_ticket",
-            description="Get ticket information by ID",
-            inputSchema={
+        },
+        {
+            "name": "get_ticket",
+            "description": "Get ticket information by ID",
+            "inputSchema": {
                 "type": "object",
                 "properties": {
                     "ticket_id": {
@@ -97,11 +107,11 @@ async def list_tools() -> list[Tool]:
                 },
                 "required": ["ticket_id"]
             }
-        ),
-        Tool(
-            name="list_tickets",
-            description="List tickets with optional filtering",
-            inputSchema={
+        },
+        {
+            "name": "list_tickets",
+            "description": "List tickets with optional filtering",
+            "inputSchema": {
                 "type": "object",
                 "properties": {
                     "user_id": {
@@ -120,15 +130,15 @@ async def list_tools() -> list[Tool]:
                     },
                     "category": {
                         "type": "string",
-                        "description": "Filter by category: 'authentication', 'indexing', 'mcp', 'features', 'performance', 'build'"
+                        "description": "Filter by category"
                     }
                 }
             }
-        ),
-        Tool(
-            name="update_ticket_status",
-            description="Update ticket status and add notes",
-            inputSchema={
+        },
+        {
+            "name": "update_ticket_status",
+            "description": "Update ticket status and add notes",
+            "inputSchema": {
                 "type": "object",
                 "properties": {
                     "ticket_id": {
@@ -151,11 +161,11 @@ async def list_tools() -> list[Tool]:
                 },
                 "required": ["ticket_id", "status"]
             }
-        ),
-        Tool(
-            name="search_tickets",
-            description="Search tickets by keyword in subject or description",
-            inputSchema={
+        },
+        {
+            "name": "search_tickets",
+            "description": "Search tickets by keyword in subject or description",
+            "inputSchema": {
                 "type": "object",
                 "properties": {
                     "query": {
@@ -165,11 +175,11 @@ async def list_tools() -> list[Tool]:
                 },
                 "required": ["query"]
             }
-        ),
-        Tool(
-            name="get_user_tickets",
-            description="Get all tickets for a specific user with full context",
-            inputSchema={
+        },
+        {
+            "name": "get_user_tickets",
+            "description": "Get all tickets for a specific user with full context",
+            "inputSchema": {
                 "type": "object",
                 "properties": {
                     "user_id": {
@@ -179,13 +189,12 @@ async def list_tools() -> list[Tool]:
                 },
                 "required": ["user_id"]
             }
-        )
+        }
     ]
 
 
-@app.call_tool()
-async def call_tool(name: str, arguments: Any) -> Sequence[TextContent]:
-    """Handle tool calls"""
+async def execute_tool(name: str, arguments: dict) -> str:
+    """Execute a CRM tool and return result"""
 
     if name == "get_user":
         users = load_users()
@@ -193,7 +202,7 @@ async def call_tool(name: str, arguments: Any) -> Sequence[TextContent]:
         user = next((u for u in users if u["id"] == user_id), None)
 
         if user:
-            result = f"""Пользователь найден:
+            return f"""Пользователь найден:
 ID: {user['id']}
 Имя: {user['name']}
 Email: {user['email']}
@@ -202,9 +211,7 @@ Email: {user['email']}
 Последняя активность: {user['lastActive']}
 Статус: {user['status']}"""
         else:
-            result = f"Пользователь с ID '{user_id}' не найден"
-
-        return [TextContent(type="text", text=result)]
+            return f"Пользователь с ID '{user_id}' не найден"
 
     elif name == "list_users":
         users = load_users()
@@ -216,13 +223,12 @@ Email: {user['email']}
             users = [u for u in users if u["subscriptionPlan"] == arguments["subscription_plan"]]
 
         if not users:
-            result = "Пользователи не найдены"
+            return "Пользователи не найдены"
         else:
             result = f"Найдено пользователей: {len(users)}\n\n"
             for user in users:
                 result += f"- {user['id']}: {user['name']} ({user['email']}) - {user['subscriptionPlan']} - {user['status']}\n"
-
-        return [TextContent(type="text", text=result)]
+            return result
 
     elif name == "get_ticket":
         tickets = load_tickets()
@@ -256,10 +262,9 @@ ID: {ticket['id']}
                 result += f"\nРешение: {ticket['resolution']}"
             if 'resolvedAt' in ticket:
                 result += f"\nРешен: {ticket['resolvedAt']}"
+            return result
         else:
-            result = f"Тикет с ID '{ticket_id}' не найден"
-
-        return [TextContent(type="text", text=result)]
+            return f"Тикет с ID '{ticket_id}' не найден"
 
     elif name == "list_tickets":
         tickets = load_tickets()
@@ -275,13 +280,12 @@ ID: {ticket['id']}
             tickets = [t for t in tickets if t["category"] == arguments["category"]]
 
         if not tickets:
-            result = "Тикеты не найдены"
+            return "Тикеты не найдены"
         else:
             result = f"Найдено тикетов: {len(tickets)}\n\n"
             for ticket in tickets:
                 result += f"- {ticket['id']}: {ticket['subject']} [{ticket['status']}] ({ticket['priority']} priority)\n"
-
-        return [TextContent(type="text", text=result)]
+            return result
 
     elif name == "update_ticket_status":
         tickets = load_tickets()
@@ -291,7 +295,7 @@ ID: {ticket['id']}
         ticket = next((t for t in tickets if t["id"] == ticket_id), None)
 
         if not ticket:
-            result = f"Тикет с ID '{ticket_id}' не найден"
+            return f"Тикет с ID '{ticket_id}' не найден"
         else:
             old_status = ticket["status"]
             ticket["status"] = new_status
@@ -305,8 +309,7 @@ ID: {ticket['id']}
                     ticket["resolution"] = arguments["resolution"]
                     ticket["resolvedAt"] = ticket["updated"]
                 else:
-                    result = f"Для статуса '{new_status}' требуется указать resolution"
-                    return [TextContent(type="text", text=result)]
+                    return f"Для статуса '{new_status}' требуется указать resolution"
 
             save_tickets(tickets)
 
@@ -320,7 +323,7 @@ ID: {ticket_id}
             if "resolution" in ticket and new_status in ["resolved", "closed"]:
                 result += f"\nРешение: {ticket['resolution']}"
 
-        return [TextContent(type="text", text=result)]
+            return result
 
     elif name == "search_tickets":
         tickets = load_tickets()
@@ -333,14 +336,13 @@ ID: {ticket_id}
         ]
 
         if not found_tickets:
-            result = f"Тикеты по запросу '{arguments['query']}' не найдены"
+            return f"Тикеты по запросу '{arguments['query']}' не найдены"
         else:
             result = f"Найдено тикетов: {len(found_tickets)} по запросу '{arguments['query']}'\n\n"
             for ticket in found_tickets:
                 result += f"- {ticket['id']}: {ticket['subject']} [{ticket['status']}]\n"
                 result += f"  Описание: {ticket['description'][:100]}...\n\n"
-
-        return [TextContent(type="text", text=result)]
+            return result
 
     elif name == "get_user_tickets":
         user_id = arguments["user_id"]
@@ -350,8 +352,7 @@ ID: {ticket_id}
         user = next((u for u in users if u["id"] == user_id), None)
 
         if not user:
-            result = f"Пользователь с ID '{user_id}' не найден"
-            return [TextContent(type="text", text=result)]
+            return f"Пользователь с ID '{user_id}' не найден"
 
         # Get user's tickets
         tickets = load_tickets()
@@ -381,22 +382,292 @@ Email: {user['email']}
                 if 'resolution' in ticket:
                     result += f"  Решение: {ticket['resolution']}\n"
 
-        return [TextContent(type="text", text=result)]
+        return result
 
     else:
-        return [TextContent(type="text", text=f"Неизвестный инструмент: {name}")]
+        return f"Неизвестный инструмент: {name}"
 
 
-async def main():
-    """Run the CRM MCP server"""
-    async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
-        await app.run(
-            read_stream,
-            write_stream,
-            app.create_initialization_options()
-        )
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for startup/shutdown."""
+    logger.info("=" * 60)
+    logger.info("CRM MCP Server Starting")
+    logger.info("=" * 60)
+    logger.info(f"Data directory: {config.DATA_DIR}")
+    logger.info(f"Host: {config.HOST}")
+    logger.info(f"Port: {config.PORT}")
+    logger.info(f"Authentication: {'ENABLED' if AUTH_ENABLED else 'DISABLED'}")
+    logger.info("=" * 60)
+
+    tools = get_tools_list()
+    logger.info(f"Registered {len(tools)} CRM tools")
+    for tool in tools:
+        logger.info(f"  - {tool['name']}: {tool['description']}")
+
+    yield
+
+    logger.info("CRM MCP Server shutting down")
+
+
+# Create FastAPI app
+app = FastAPI(
+    title="CRM MCP Server",
+    description="User and ticket management via Model Context Protocol (MCP)",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+
+def check_auth(authorization: Optional[str] = None) -> bool:
+    """Check if request is authorized."""
+    if not AUTH_ENABLED:
+        return True
+
+    if not authorization:
+        return False
+
+    # Support both "Bearer <token>" and plain token
+    token = authorization.replace("Bearer ", "").strip()
+    return token == config.CRM_API_KEY
+
+
+@app.get("/")
+async def root():
+    """Server info endpoint."""
+    return {
+        "name": "CRM MCP Server",
+        "version": "1.0.0",
+        "description": "User and ticket management via MCP",
+        "protocol": "mcp/1.0",
+        "capabilities": {
+            "tools": len(get_tools_list()),
+        },
+        "data_dir": str(config.DATA_DIR),
+    }
+
+
+@app.get("/health")
+async def health():
+    """Health check endpoint."""
+    try:
+        users = load_users()
+        tickets = load_tickets()
+        return {
+            "status": "healthy",
+            "users_count": len(users),
+            "tickets_count": len(tickets),
+        }
+    except Exception as e:
+        return {"status": "unhealthy", "error": str(e)}
+
+
+@app.get("/tools")
+async def list_tools(authorization: Optional[str] = Header(None)):
+    """List available MCP tools."""
+    if not check_auth(authorization):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    return {
+        "tools": get_tools_list(),
+    }
+
+
+@app.get("/sse")
+async def sse_endpoint(
+    request: Request,
+    authorization: Optional[str] = Header(None),
+):
+    """SSE endpoint for MCP protocol communication."""
+    if not check_auth(authorization):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    session_id = str(uuid.uuid4())
+    logger.info(f"New SSE connection: {session_id}")
+
+    async def event_generator():
+        try:
+            # Store session
+            sessions[session_id] = {
+                "id": session_id,
+                "connected": True,
+            }
+
+            # Send endpoint URL as first message
+            endpoint_url = f"http://{config.HOST}:{config.PORT}/message?sessionId={session_id}"
+            yield f"event: endpoint\ndata: {endpoint_url}\n\n"
+
+            # Keep connection alive
+            while sessions.get(session_id, {}).get("connected", False):
+                yield f"event: ping\ndata: {{}}\n\n"
+                await asyncio.sleep(30)
+
+        except asyncio.CancelledError:
+            logger.info(f"SSE connection cancelled: {session_id}")
+        finally:
+            # Clean up session
+            if session_id in sessions:
+                del sessions[session_id]
+            logger.info(f"SSE connection closed: {session_id}")
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.post("/message")
+async def handle_message(
+    request: Request,
+    sessionId: str,
+    authorization: Optional[str] = Header(None),
+):
+    """Handle MCP protocol messages."""
+    if not check_auth(authorization):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    try:
+        message = await request.json()
+        logger.debug(f"Received message for session {sessionId}: {message}")
+
+        method = message.get("method")
+        msg_id = message.get("id")
+
+        if method == "initialize":
+            return {
+                "jsonrpc": "2.0",
+                "id": msg_id,
+                "result": {
+                    "protocolVersion": "1.0",
+                    "serverInfo": {
+                        "name": "crm-mcp-server",
+                        "version": "1.0.0",
+                    },
+                    "capabilities": {
+                        "tools": {},
+                    },
+                },
+            }
+
+        elif method == "tools/list":
+            return {
+                "jsonrpc": "2.0",
+                "id": msg_id,
+                "result": {
+                    "tools": get_tools_list(),
+                },
+            }
+
+        elif method == "tools/call":
+            params = message.get("params", {})
+            tool_name = params.get("name")
+            arguments = params.get("arguments", {})
+
+            logger.info(f"Executing tool: {tool_name}")
+
+            # Execute tool
+            try:
+                result = await execute_tool(tool_name, arguments)
+
+                # Log response preview
+                preview_lines = result.splitlines()
+                if len(preview_lines) <= 6:
+                    preview = "\n".join(preview_lines)
+                else:
+                    skipped = len(preview_lines) - 6
+                    preview = "\n".join(preview_lines[:3])
+                    preview += f"\n... ({skipped} more lines) ..."
+                    preview += "\n" + "\n".join(preview_lines[-3:])
+                logger.info(f"Tool {tool_name} [OK]:\n{preview}")
+
+                return {
+                    "jsonrpc": "2.0",
+                    "id": msg_id,
+                    "result": {
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": result
+                            }
+                        ]
+                    },
+                }
+            except Exception as e:
+                logger.error(f"Tool execution error: {e}")
+                return {
+                    "jsonrpc": "2.0",
+                    "id": msg_id,
+                    "error": {
+                        "code": -32603,
+                        "message": f"Tool execution failed: {str(e)}",
+                    },
+                }
+
+        else:
+            return {
+                "jsonrpc": "2.0",
+                "id": msg_id,
+                "error": {
+                    "code": -32601,
+                    "message": f"Method not found: {method}",
+                },
+            }
+
+    except Exception as e:
+        logger.error(f"Message handling error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def main():
+    """Main entry point."""
+    parser = argparse.ArgumentParser(description="CRM MCP Server")
+    parser.add_argument("--host", default=config.HOST, help="Host to bind to")
+    parser.add_argument("--port", type=int, default=config.PORT, help="Port to bind to")
+    parser.add_argument("--no-auth", action="store_true", help="Disable authentication")
+    parser.add_argument("--data-dir", default=None, help="Path to data directory")
+    args = parser.parse_args()
+
+    # Update config
+    config.HOST = args.host
+    config.PORT = args.port
+
+    if args.no_auth:
+        config.NO_AUTH = True
+        global AUTH_ENABLED
+        AUTH_ENABLED = False
+
+    # Set data directory
+    if args.data_dir:
+        config.DATA_DIR = Path(args.data_dir)
+    else:
+        config.DATA_DIR = Path(__file__).parent / "data"
+
+    config.USERS_FILE = config.DATA_DIR / "users.json"
+    config.TICKETS_FILE = config.DATA_DIR / "tickets.json"
+
+    # Check data files exist
+    if not config.USERS_FILE.exists():
+        logger.error(f"Users file not found: {config.USERS_FILE}")
+        sys.exit(1)
+    if not config.TICKETS_FILE.exists():
+        logger.error(f"Tickets file not found: {config.TICKETS_FILE}")
+        sys.exit(1)
+
+    # Run server
+    import uvicorn
+
+    uvicorn.run(
+        app,
+        host=config.HOST,
+        port=config.PORT,
+        log_level="info",
+    )
 
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    main()
