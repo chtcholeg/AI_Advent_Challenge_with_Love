@@ -230,6 +230,39 @@ class CommandHandler(
     }
 
     /**
+     * Parse changed files from github_pr_files tool response.
+     * Expected format: "  [status] path/to/file.kt (+X -Y)"
+     */
+    private fun parseChangedFilesFromPrFiles(filesOutput: String): List<String> {
+        // Extract filenames from lines like "  [modified] path/to/file.kt (+9 -0)"
+        return Regex("""^\s*\[(?:added|modified|removed|renamed)\]\s+(.+?)\s+\(""", RegexOption.MULTILINE)
+            .findAll(filesOutput)
+            .map { it.groupValues[1].trim() }
+            .distinct()
+            .toList()
+    }
+
+    /**
+     * Build minimal diff summary when full diff is unavailable (too large).
+     * Creates a summary showing file list only.
+     */
+    private fun buildMinimalDiffFromFiles(files: List<String>): String {
+        return buildString {
+            appendLine("# Large PR - Diff Summary")
+            appendLine()
+            appendLine("⚠️ The full diff is too large (>20000 lines) and cannot be retrieved from GitHub API.")
+            appendLine("Full file contents will be read instead for review.")
+            appendLine()
+            appendLine("Changed files (${files.size}):")
+            files.forEach { file ->
+                appendLine("  - $file")
+            }
+            appendLine()
+            appendLine("(Full contents of these files are provided in the 'File Contents' section below)")
+        }
+    }
+
+    /**
      * Add line numbers to code content for easier reference in review.
      * Format: "  1 | code line"
      */
@@ -254,8 +287,25 @@ class CommandHandler(
 
         if (isPrReview) {
             val prNumber = args?.trim() ?: return null
-            diff = callTool("github_pr_diff", mapOf("pr_number" to prNumber)) ?: return null
-            changedFiles = parseChangedFilesFromDiff(diff)
+
+            // Try to get full diff first
+            val diffResult = callTool("github_pr_diff", mapOf("pr_number" to prNumber))
+
+            if (diffResult != null) {
+                // Success: got the full diff
+                diff = diffResult
+                changedFiles = parseChangedFilesFromDiff(diff)
+            } else {
+                // Failed (likely 406 - diff too large): fallback to github_pr_files
+                val filesResult = callTool("github_pr_files", mapOf("pr_number" to prNumber))
+                    ?: return null
+
+                // Parse file list from github_pr_files response
+                changedFiles = parseChangedFilesFromPrFiles(filesResult)
+
+                // Build minimal diff summary (without actual content)
+                diff = buildMinimalDiffFromFiles(changedFiles)
+            }
         } else {
             // Local mode: get status + diff
             callTool("git_status") // warm up / verify availability
