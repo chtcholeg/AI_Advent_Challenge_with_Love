@@ -16,6 +16,7 @@ sealed class CommandResult {
      * [excludeTools] optionally filters out tools by name.
      * [includeTools] optionally restricts to ONLY these tools (whitelist, takes priority over excludeTools).
      * [requiresDocValidation] when true, enables Phase 2 RAG documentation validation (for /review-pr).
+     * [enableRagContext] when true, loads RAG context in Phase 1 (for /support).
      */
     data class NeedsLlmProcessing(
         val context: String,
@@ -23,7 +24,8 @@ sealed class CommandResult {
         val enableTools: Boolean = false,
         val excludeTools: List<String>? = null,
         val includeTools: List<String>? = null,
-        val requiresDocValidation: Boolean = false
+        val requiresDocValidation: Boolean = false,
+        val enableRagContext: Boolean = false
     ) : CommandResult()
 
     /**

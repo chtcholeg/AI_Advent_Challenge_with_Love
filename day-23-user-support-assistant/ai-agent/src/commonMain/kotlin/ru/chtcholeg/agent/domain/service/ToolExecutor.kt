@@ -16,6 +16,8 @@ class ToolExecutor(
     private val hookManager: HookManager?,
 ) {
     suspend fun executeTool(functionCall: FunctionCall): McpToolResult {
+        println("[ToolExecutor] Executing tool: ${functionCall.name}")
+
         // Check permissions before executing
         val inPlanMode = planModeRepository.planModeState.value.isActive
         val permission = permissionManager.checkPermission(
@@ -58,11 +60,21 @@ class ToolExecutor(
                 result.getOrThrow()
             }
         } catch (e: Exception) {
+            println("[ToolExecutor] Tool '${functionCall.name}' failed: ${e.message}")
             McpToolResult(
                 content = "Error executing tool '${functionCall.name}': ${e.message}",
                 isError = true
             )
         }
+
+        // Log result preview
+        val preview = if (result.content.length > 200) {
+            result.content.take(200) + "..."
+        } else {
+            result.content
+        }
+        val status = if (result.isError) "ERROR" else "OK"
+        println("[ToolExecutor] Tool '${functionCall.name}' [$status]: $preview")
 
         // Run post-tool hooks (non-blocking)
         hookManager?.runPostToolHooks(functionCall.name, argsJson, result.content)

@@ -21,6 +21,7 @@ from fastapi import FastAPI, Request, HTTPException, Header
 from fastapi.responses import StreamingResponse
 
 from . import config
+from .search_service import get_search_service
 
 # Setup logging
 logging.basicConfig(
@@ -164,13 +165,13 @@ def get_tools_list() -> list[dict]:
         },
         {
             "name": "search_tickets",
-            "description": "Search tickets by keyword in subject or description",
+            "description": "Smart search tickets using LLM query expansion and relevance scoring. Automatically expands query with synonyms and technical terms for better results.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "Search query"
+                        "description": "Search query in natural language (e.g., 'authorization not working', 'pdf indexing error')"
                     }
                 },
                 "required": ["query"]
@@ -195,13 +196,16 @@ def get_tools_list() -> list[dict]:
 
 async def execute_tool(name: str, arguments: dict) -> str:
     """Execute a CRM tool and return result"""
+    logger.info(f"[execute_tool] Tool: {name}, Arguments: {arguments}")
 
     if name == "get_user":
         users = load_users()
         user_id = arguments["user_id"]
+        logger.info(f"[get_user] Looking for user_id: {user_id}")
         user = next((u for u in users if u["id"] == user_id), None)
 
         if user:
+            logger.info(f"[get_user] Found user: {user['name']}")
             return f"""Пользователь найден:
 ID: {user['id']}
 Имя: {user['name']}
@@ -211,9 +215,11 @@ Email: {user['email']}
 Последняя активность: {user['lastActive']}
 Статус: {user['status']}"""
         else:
+            logger.warning(f"[get_user] User not found: {user_id}")
             return f"Пользователь с ID '{user_id}' не найден"
 
     elif name == "list_users":
+        logger.info(f"[list_users] Filters: {arguments}")
         users = load_users()
 
         # Apply filters
@@ -233,9 +239,11 @@ Email: {user['email']}
     elif name == "get_ticket":
         tickets = load_tickets()
         ticket_id = arguments["ticket_id"]
+        logger.info(f"[get_ticket] Looking for ticket_id: {ticket_id}")
         ticket = next((t for t in tickets if t["id"] == ticket_id), None)
 
         if ticket:
+            logger.info(f"[get_ticket] Found ticket: {ticket['subject']}")
             # Get user info
             users = load_users()
             user = next((u for u in users if u["id"] == ticket["userId"]), None)
@@ -264,9 +272,11 @@ ID: {ticket['id']}
                 result += f"\nРешен: {ticket['resolvedAt']}"
             return result
         else:
+            logger.warning(f"[get_ticket] Ticket not found: {ticket_id}")
             return f"Тикет с ID '{ticket_id}' не найден"
 
     elif name == "list_tickets":
+        logger.info(f"[list_tickets] Filters: {arguments}")
         tickets = load_tickets()
 
         # Apply filters
@@ -280,14 +290,17 @@ ID: {ticket['id']}
             tickets = [t for t in tickets if t["category"] == arguments["category"]]
 
         if not tickets:
+            logger.info(f"[list_tickets] No tickets found with filters: {arguments}")
             return "Тикеты не найдены"
         else:
+            logger.info(f"[list_tickets] Found {len(tickets)} tickets")
             result = f"Найдено тикетов: {len(tickets)}\n\n"
             for ticket in tickets:
                 result += f"- {ticket['id']}: {ticket['subject']} [{ticket['status']}] ({ticket['priority']} priority)\n"
             return result
 
     elif name == "update_ticket_status":
+        logger.info(f"[update_ticket_status] Updating ticket {arguments.get('ticket_id')} to status {arguments.get('status')}")
         tickets = load_tickets()
         ticket_id = arguments["ticket_id"]
         new_status = arguments["status"]
@@ -312,6 +325,7 @@ ID: {ticket['id']}
                     return f"Для статуса '{new_status}' требуется указать resolution"
 
             save_tickets(tickets)
+            logger.info(f"[update_ticket_status] Ticket {ticket_id} updated successfully")
 
             result = f"""Тикет обновлен:
 ID: {ticket_id}
@@ -327,36 +341,55 @@ ID: {ticket_id}
 
     elif name == "search_tickets":
         tickets = load_tickets()
-        query = arguments["query"].lower()
+        query = arguments["query"]
 
-        # Search in subject and description
-        found_tickets = [
-            t for t in tickets
-            if query in t["subject"].lower() or query in t["description"].lower()
-        ]
+        logger.info(f"[search_tickets] Searching with query: '{query}'")
 
-        if not found_tickets:
-            return f"Тикеты по запросу '{arguments['query']}' не найдены"
-        else:
-            result = f"Найдено тикетов: {len(found_tickets)} по запросу '{arguments['query']}'\n\n"
-            for ticket in found_tickets:
-                result += f"- {ticket['id']}: {ticket['subject']} [{ticket['status']}]\n"
-                result += f"  Описание: {ticket['description'][:100]}...\n\n"
-            return result
+        # Use advanced search service
+        search_service = get_search_service()
+        search_results = await search_service.search_tickets(
+            tickets=tickets,
+            query=query,
+            use_llm_expansion=config.USE_LLM_SEARCH
+        )
+
+        logger.info(f"[search_tickets] Found {len(search_results)} tickets")
+
+        if not search_results:
+            return f"Тикеты по запросу '{query}' не найдены.\n\nПопробуйте:\n- Использовать другие ключевые слова\n- list_tickets для просмотра всех тикетов\n- list_tickets с фильтрами (status, priority, category)"
+
+        # Format results with relevance scores
+        result = f"Найдено тикетов: {len(search_results)} по запросу '{query}'\n"
+        result += "(Отсортировано по релевантности)\n\n"
+
+        for i, search_result in enumerate(search_results[:10], 1):  # Top 10
+            ticket = search_result.ticket
+            result += f"{i}. {ticket['id']}: {ticket['subject']} [{ticket['status']}]\n"
+            result += f"   Приоритет: {ticket['priority']} | Категория: {ticket['category']}\n"
+            result += f"   Описание: {ticket['description'][:150]}...\n"
+            result += f"   📊 Релевантность: {search_result.score:.1f} ({search_result.match_reason})\n\n"
+
+        if len(search_results) > 10:
+            result += f"... и ещё {len(search_results) - 10} тикетов\n"
+
+        return result
 
     elif name == "get_user_tickets":
         user_id = arguments["user_id"]
+        logger.info(f"[get_user_tickets] Getting tickets for user: {user_id}")
 
         # Get user info
         users = load_users()
         user = next((u for u in users if u["id"] == user_id), None)
 
         if not user:
+            logger.warning(f"[get_user_tickets] User not found: {user_id}")
             return f"Пользователь с ID '{user_id}' не найден"
 
         # Get user's tickets
         tickets = load_tickets()
         user_tickets = [t for t in tickets if t["userId"] == user_id]
+        logger.info(f"[get_user_tickets] Found {len(user_tickets)} tickets for user {user_id}")
 
         result = f"""Информация о пользователе:
 Имя: {user['name']}
@@ -398,6 +431,16 @@ async def lifespan(app: FastAPI):
     logger.info(f"Host: {config.HOST}")
     logger.info(f"Port: {config.PORT}")
     logger.info(f"Authentication: {'ENABLED' if AUTH_ENABLED else 'DISABLED'}")
+
+    # Initialize search service and check LLM availability
+    search_service = get_search_service()
+    if search_service.use_llm and config.USE_LLM_SEARCH:
+        logger.info(f"Smart Search: ENABLED (LLM query expansion via GigaChat)")
+    elif not search_service.use_llm:
+        logger.info(f"Smart Search: DISABLED (no GigaChat credentials)")
+    else:
+        logger.info(f"Smart Search: DISABLED (CRM_USE_LLM_SEARCH=false)")
+
     logger.info("=" * 60)
 
     tools = get_tools_list()

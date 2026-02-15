@@ -17,6 +17,7 @@ import ru.chtcholeg.agent.domain.model.MessageType
 import ru.chtcholeg.agent.domain.model.RagMode
 import ru.chtcholeg.agent.domain.model.SourceReference
 import ru.chtcholeg.agent.domain.service.CommandHandler
+import ru.chtcholeg.agent.domain.service.TicketSourceParser
 
 /**
  * MVI Store for agent screen.
@@ -231,23 +232,35 @@ class AgentStore(
 
             if (result.enableTools) {
                 // ═══════════════════════════════════════════════════════════════════════
-                // TWO-PHASE CODE REVIEW ARCHITECTURE
+                // TWO-PHASE ARCHITECTURE
                 // ═══════════════════════════════════════════════════════════════════════
-                // Phase 1: MCP tools gather data (diff, files, git info)
-                // Phase 2: RAG documentation validates against project standards
+                // Phase 1: MCP tools + optional RAG (for /support or /review-pr)
+                // Phase 2: RAG documentation validation (for /review-pr only)
                 //
-                // WHY TWO PHASES?
+                // WHY TWO PHASES FOR CODE REVIEW?
                 // - Phase 1 with RAG: model describes steps instead of calling tools
                 // - Phase 1 without RAG: model correctly invokes function calls
                 // - Phase 2: documentation context enhances review quality
+                //
+                // FOR SUPPORT MODE:
+                // - Phase 1 WITH RAG: knowledge base search + CRM tools
+                // - Phase 2: skipped (no code review validation needed)
                 // ═══════════════════════════════════════════════════════════════════════
 
-                // === PHASE 1: Data gathering + review WITHOUT RAG ===
-                // Use clean MCP-only mode so the model focuses on calling tools.
-                // RAG context in this phase confuses the model into describing
-                // steps instead of actually invoking function calls.
+                // === PHASE 1: Data gathering with optional RAG ===
+                // Load RAG context if requested (e.g., /support needs knowledge base)
+                val (phase1RagContext, phase1Sources) = if (result.enableRagContext) {
+                    loadRagContext(result.query, sessionId)
+                } else {
+                    null to null
+                }
+
                 val statusMessage = AgentMessage(
-                    content = "Phase 1/2: Analyzing code changes with MCP tools...",
+                    content = if (result.enableRagContext) {
+                        "Searching knowledge base and analyzing context..."
+                    } else {
+                        "Phase 1/2: Analyzing code changes with MCP tools..."
+                    },
                     type = MessageType.RAG_CONTEXT
                 )
                 _state.update { it.copy(messages = it.messages + statusMessage) }
@@ -256,7 +269,7 @@ class AgentStore(
                 val toolResponses = try {
                     agentRepository.sendMessage(
                         userMessage = result.query,
-                        ragContext = null,
+                        ragContext = phase1RagContext,  // Include RAG if requested
                         ragCitations = true,
                         excludeTools = result.excludeTools,
                         includeTools = result.includeTools,
@@ -267,14 +280,46 @@ class AgentStore(
                     throw e
                 }
 
-                _state.update { it.copy(messages = it.messages + toolResponses) }
-                chatHistoryRepository.saveMessages(sessionId, toolResponses)
+                // Extract ticket sources from CRM tool results (search_tickets, get_ticket, etc.)
+                println("[AgentStore] Extracting ticket sources from ${toolResponses.size} responses")
+                val ticketSources = extractTicketSources(
+                    toolResponses,
+                    startIndex = (phase1Sources?.size ?: 0) + 1
+                )
+                println("[AgentStore] Extracted ${ticketSources.size} ticket sources")
+
+                // Combine RAG sources (documentation) and CRM sources (tickets)
+                val allSources = when {
+                    phase1Sources != null && ticketSources.isNotEmpty() -> phase1Sources + ticketSources
+                    phase1Sources != null -> phase1Sources
+                    ticketSources.isNotEmpty() -> ticketSources
+                    else -> null
+                }
+
+                // Log combined sources for debugging
+                println("[AgentStore] RAG sources: ${phase1Sources?.size ?: 0}")
+                println("[AgentStore] CRM sources: ${ticketSources.size}")
+                println("[AgentStore] Total sources: ${allSources?.size ?: 0}")
+
+                if (allSources != null) {
+                    allSources.forEach { (idx, src) ->
+                        println("[AgentStore] Source [$idx]: ${src.filePath} (similarity=${src.similarity})")
+                    }
+                }
+
+                // Attach all source references (RAG + CRM)
+                val toolResponsesWithSources = attachSources(toolResponses, allSources)
+                println("[AgentStore] Attached sources to ${toolResponsesWithSources.size} responses")
+
+                _state.update { it.copy(messages = it.messages + toolResponsesWithSources) }
+                chatHistoryRepository.saveMessages(sessionId, toolResponsesWithSources)
 
                 // === PHASE 2: Enhance review with RAG documentation (if requested and available) ===
                 // If command requires doc validation (e.g., /review-pr) and RAG index is configured,
                 // load project documentation and validate code changes against standards.
-                val (ragContext, currentSources) = loadRagContext(result.query, sessionId)
-                if (result.requiresDocValidation && ragContext != null) {
+                if (result.requiresDocValidation) {
+                    val (ragContext, currentSources) = loadRagContext(result.query, sessionId)
+                    if (ragContext != null) {
                     val ragStatusMessage = AgentMessage(
                         content = "Phase 2/2: Enhancing review with project documentation...",
                         type = MessageType.RAG_CONTEXT
@@ -310,6 +355,9 @@ class AgentStore(
                         )
                     }
                     chatHistoryRepository.saveMessages(sessionId, ragResponses)
+                    } else {
+                        _state.update { it.copy(isLoading = false, error = null) }
+                    }
                 } else {
                     _state.update { it.copy(isLoading = false, error = null) }
                 }
@@ -449,13 +497,24 @@ class AgentStore(
         responses: List<AgentMessage>,
         sources: Map<Int, SourceReference>?
     ): List<AgentMessage> {
-        if (sources == null) return responses
+        println("[AgentStore.attachSources] Called with ${responses.size} responses and ${sources?.size ?: 0} sources")
+
+        if (sources == null) {
+            println("[AgentStore.attachSources] No sources provided, returning original responses")
+            return responses
+        }
 
         val sourcePattern = Regex("""\[Источник\s+(\d+)]""")
         val sourceSectionPattern = Regex("""\n*📚\s*Источники:[\s\S]*$""")
 
         return responses.map { msg ->
-            if (msg.type != MessageType.AI) return@map msg
+            if (msg.type != MessageType.AI) {
+                println("[AgentStore.attachSources] Message type ${msg.type}, skipping")
+                return@map msg
+            }
+
+            println("[AgentStore.attachSources] Processing AI message (${msg.content.length} chars)")
+            println("[AgentStore.attachSources] First 200 chars: ${msg.content.take(200)}")
 
             val mainText = sourceSectionPattern.replace(msg.content, "")
             val referencedNums = sourcePattern.findAll(mainText)
@@ -464,9 +523,13 @@ class AgentStore(
                 .distinct()
                 .toList()
 
+            println("[AgentStore.attachSources] Found ${referencedNums.size} referenced source numbers: $referencedNums")
+
             if (referencedNums.isEmpty()) {
+                println("[AgentStore.attachSources] No source references found in AI message, returning without sources")
                 msg.copy(sources = null)
             } else {
+                println("[AgentStore.attachSources] Renumbering and attaching sources")
                 val renumberMap = referencedNums
                     .sorted()
                     .mapIndexed { index, oldNum -> oldNum to (index + 1) }
@@ -550,6 +613,79 @@ class AgentStore(
             chatHistoryRepository.saveMessage(sessionId, errorMessage)
             null to null
         }
+    }
+
+    /**
+     * Extract ticket sources from CRM tool results (search_tickets, get_ticket, get_user_tickets).
+     * Parses TOOL_RESULT messages and creates SourceReference objects for tickets.
+     *
+     * @param messages List of messages including TOOL_CALL and TOOL_RESULT pairs
+     * @param startIndex Starting index for source numbering (to append after RAG sources)
+     * @return Map of source index -> SourceReference
+     */
+    private fun extractTicketSources(
+        messages: List<AgentMessage>,
+        startIndex: Int = 1
+    ): Map<Int, SourceReference> {
+        val sources = mutableMapOf<Int, SourceReference>()
+        var currentIndex = startIndex
+
+        println("[AgentStore.extractTicketSources] Processing ${messages.size} messages, startIndex=$startIndex")
+
+        // Find TOOL_CALL and corresponding TOOL_RESULT pairs
+        for (i in messages.indices) {
+            val msg = messages[i]
+
+            // Look for tool calls
+            if (msg.type == MessageType.TOOL_CALL) {
+                // Parse tool name from "tool_name(args)" format
+                val toolName = msg.content.substringBefore("(")
+                println("[AgentStore.extractTicketSources] Found TOOL_CALL: $toolName")
+
+                // Find corresponding tool result (next TOOL_RESULT message)
+                val resultMsg = messages.getOrNull(i + 1)
+                if (resultMsg?.type == MessageType.TOOL_RESULT) {
+                    println("[AgentStore.extractTicketSources] Found TOOL_RESULT for $toolName (${resultMsg.content.length} chars)")
+
+                    val ticketSources = when (toolName) {
+                        "search_tickets" -> {
+                            println("[AgentStore.extractTicketSources] Parsing search_tickets result")
+                            TicketSourceParser.parseSearchTicketsSources(
+                                resultMsg.content,
+                                currentIndex
+                            )
+                        }
+                        "get_ticket" -> {
+                            println("[AgentStore.extractTicketSources] Parsing get_ticket result")
+                            TicketSourceParser.parseGetTicketSource(
+                                resultMsg.content,
+                                currentIndex
+                            )
+                        }
+                        "get_user_tickets" -> {
+                            println("[AgentStore.extractTicketSources] Parsing get_user_tickets result")
+                            TicketSourceParser.parseUserTicketsSources(
+                                resultMsg.content,
+                                currentIndex
+                            )
+                        }
+                        else -> {
+                            println("[AgentStore.extractTicketSources] Tool $toolName not a ticket tool, skipping")
+                            emptyMap()
+                        }
+                    }
+
+                    println("[AgentStore.extractTicketSources] Parsed ${ticketSources.size} sources from $toolName")
+                    sources.putAll(ticketSources)
+                    currentIndex += ticketSources.size
+                } else {
+                    println("[AgentStore.extractTicketSources] WARNING: No TOOL_RESULT found after TOOL_CALL $toolName")
+                }
+            }
+        }
+
+        println("[AgentStore.extractTicketSources] Total extracted sources: ${sources.size}")
+        return sources
     }
 
     private suspend fun getOrCreateSessionId(firstMessageContent: String): String {

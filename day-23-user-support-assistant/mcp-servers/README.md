@@ -1,10 +1,12 @@
-# MCP Servers for AI Agent
+# MCP Servers
+
+> 🆕 **NEW:** CRM MCP Server now supports **Smart Search** with LLM query expansion! See [SMART_SEARCH.md](SMART_SEARCH.md) for AI Agent
 
 Collection of MCP (Model Context Protocol) servers for the AI Agent project.
 
 ## Available Servers
 
-### Git MCP Server (port 8010)
+### 1. Git MCP Server (port 8010)
 
 Git repository operations via MCP protocol.
 
@@ -17,9 +19,62 @@ Git repository operations via MCP protocol.
 
 **Documentation:** [git/README.md](git/README.md)
 
+### 2. CRM MCP Server (port 8011) 🆕
+
+Customer relationship management with smart search capabilities.
+
+**Features:**
+- 🧠 **Smart Search** - LLM-powered query expansion with GigaChat
+- User management (get, list, filter by plan/status)
+- Ticket management (get, list, search, update)
+- Relevance scoring and ranking
+- Full ticket history and context
+
+**Tools:**
+- `get_user` - Get user information by ID
+- `list_users` - List all users with filters
+- `get_ticket` - Get ticket details by ID
+- `list_tickets` - List tickets with filters (status, priority, category)
+- `search_tickets` - Smart search with LLM query expansion 🧠
+- `get_user_tickets` - Get all tickets for a user
+- `update_ticket_status` - Update ticket status and resolution
+
+**Documentation:**
+- [SMART_SEARCH.md](SMART_SEARCH.md) - Smart search guide
+- [TEST_SMART_SEARCH.sh](TEST_SMART_SEARCH.sh) - Test script
+
 ## Quick Start
 
-### Installation
+### One-Command Start (Recommended)
+
+Start both Git and CRM MCP servers:
+
+```bash
+cd mcp-servers
+./START.sh
+```
+
+This will:
+- Create virtual environment (if needed)
+- Install dependencies
+- Start Git MCP Server on port 8010
+- Start CRM MCP Server on port 8011
+- Show logs in console (also saved to `/tmp/git-mcp.log` and `/tmp/crm-mcp.log`)
+
+### Enable Smart Search (Optional)
+
+For LLM-powered ticket search with GigaChat:
+
+```bash
+export GIGACHAT_CLIENT_ID="your_client_id"
+export GIGACHAT_CLIENT_SECRET="your_client_secret"
+cd mcp-servers
+./START.sh
+```
+
+See [SMART_SEARCH.md](SMART_SEARCH.md) for details.
+
+### Manual Installation
 
 ```bash
 cd mcp-servers
@@ -28,21 +83,21 @@ cd mcp-servers
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Install Git MCP server
+# Install dependencies
 pip install -e .
+pip install -r requirements.txt
 ```
 
-### Start Git Server
+### Start Individual Servers
 
+**Git Server:**
 ```bash
-# Without authentication (recommended for local use)
 python -m git.main --no-auth
+```
 
-# Or use the installed command
-mcp-git --no-auth
-
-# With custom repository path
-mcp-git --repo-path /path/to/repo --no-auth
+**CRM Server:**
+```bash
+python -m crm.main --no-auth
 ```
 
 ### Add to AI Agent

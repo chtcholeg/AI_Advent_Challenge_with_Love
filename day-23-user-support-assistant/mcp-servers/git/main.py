@@ -240,7 +240,7 @@ async def handle_message(
             tool_name = params.get("name")
             arguments = params.get("arguments", {})
 
-            logger.info(f"Executing tool: {tool_name}")
+            logger.info(f"[tools/call] Tool: {tool_name}, Arguments: {arguments}")
 
             # Find tool
             tool = next((t for t in tools if t.name == tool_name), None)

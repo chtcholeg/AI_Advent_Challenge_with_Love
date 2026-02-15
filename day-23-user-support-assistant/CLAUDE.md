@@ -9,12 +9,15 @@ Project guidance for Claude Code.
 **Modules**: `chat/` (main app), `ai-agent/` (MCP agent + RAG), `shared/` (API, models, indexing), `indexer/` (document indexing GUI), `mcp-servers/` (Python MCP servers)
 
 **Key Features**:
+- **User Support Assistant** (Day 23): `/support` command with RAG + CRM integration, smart ticket search, dual source display
+- **Code Review** (Day 22): `/review-pr` command with specialized bug detection checklists, large PR support
 - Response modes: Normal, JSON, XML, Dialog, Step-by-Step, Expert Panel
 - Local SQLDelight storage with session management and compression
 - MCP server integration + local tools (Telegram reminders)
 - Document indexing with semantic search (GigaChat/Ollama embeddings)
 - RAG (Retrieval-Augmented Generation) in AI Agent
 - Git MCP Server for developer assistant capabilities (Day 21)
+- CRM MCP Server for user support capabilities (Day 23)
 
 ## Build Commands
 
@@ -30,8 +33,9 @@ Project guidance for Claude Code.
 ./gradlew :indexer:run                 # Document Indexer GUI (requires Ollama)
 
 # MCP Servers
-cd mcp-servers && ./START.sh          # Git MCP Server (quick start)
-cd mcp-servers && python -m git.main --no-auth  # Git MCP Server (manual)
+cd mcp-servers && ./START.sh          # Start Git (8010) + CRM (8011) servers
+cd mcp-servers && python -m git.main --no-auth  # Git MCP Server only (manual)
+cd mcp-servers && python -m crm.main --no-auth  # CRM MCP Server only (manual)
 
 # Document Indexing CLI (supports md, txt, pdf)
 export GIGACHAT_CLIENT_ID="..." GIGACHAT_CLIENT_SECRET="..."
@@ -117,6 +121,9 @@ shared/         (API, models, indexing services)
 | Image Processor | `domain/service/ImageProcessor.kt` (base64 detection/sanitization) |
 | Tool Executor | `domain/service/ToolExecutor.kt` (permissions, hooks, retry) |
 | Tool Schema DSL | `domain/tool/ToolSchemaBuilder.kt` (JSON Schema builder) |
+| **Command Handler** | `domain/model/CommandHandler.kt` (NEW: `/support`, `/review-pr` commands) |
+| **Ticket Parser** | `domain/service/TicketSourceParser.kt` (NEW: parse CRM ticket sources) |
+| **Code Review Checklists** | `domain/service/SpecializedChecklists.kt` (NEW: technology-specific bug patterns) |
 | Config | `config/AgentConfig.kt` (centralized constants) |
 | RAG Mode | `domain/model/RagMode.kt` |
 | AI Settings | `domain/model/AiSettings.kt` |
@@ -195,6 +202,9 @@ Runtime config via SettingsScreen:
 | File | Description |
 |------|-------------|
 | README.md | Complete setup and usage guide |
+| **DAY_23_COMPLETED.md** | Day 23 implementation summary (NEW) |
+| **SUPPORT_SOURCES_GUIDE.md** | Dual source display guide (NEW) |
+| **FIX_LARGE_PR_REVIEW.md** | Large PR handling guide (NEW) |
 | docs/BUILD_INSTRUCTIONS.md | Build and setup instructions |
 | docs/COMMANDS_GUIDE.md | Technical guide for commands |
 | docs/AI_AGENT.md | AI Agent overview |
@@ -207,7 +217,12 @@ Runtime config via SettingsScreen:
 | ai-agent/README.md | AI Agent architecture and usage |
 | ai-agent/CITATIONS_GUIDE.md | Using source citations in RAG context |
 | ai-agent/LOCAL_TOOLS.md | Local tools documentation |
+| **support-docs/DAY_23_README.md** | Day 23 overview (NEW) |
+| **support-docs/SETUP_GUIDE.md** | Support setup instructions (NEW) |
+| **support-docs/TEST_SCENARIOS.md** | Support test scenarios (NEW) |
 | mcp-servers/README.md | MCP servers overview |
 | mcp-servers/QUICKSTART.md | Git MCP 5-minute quick start |
 | mcp-servers/INTEGRATION.md | MCP integration with AI Agent |
 | mcp-servers/git/README.md | Git MCP Server full documentation |
+| **mcp-servers/crm/README.md** | CRM MCP Server documentation (NEW) |
+| **mcp-servers/SMART_SEARCH.md** | Smart search documentation (NEW) |

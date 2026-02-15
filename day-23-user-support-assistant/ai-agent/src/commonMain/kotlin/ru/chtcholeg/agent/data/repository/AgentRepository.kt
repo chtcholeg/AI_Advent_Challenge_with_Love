@@ -416,6 +416,11 @@ $commandContextSection
                 }
 
                 // Execute tools — parallel if multiple, direct if single
+                println("[AgentRepository] Executing ${functionCalls.size} tool(s)")
+                functionCalls.forEach { fc ->
+                    println("[AgentRepository] Tool: ${fc.name}, Arguments: ${fc.arguments}")
+                }
+
                 val toolResults = if (functionCalls.size == 1) {
                     listOf(functionCalls[0] to toolExecutor.executeTool(functionCalls[0]))
                 } else {
@@ -654,6 +659,7 @@ $commandContextSection
                 )
 
                 // Execute the tool
+                println("[AgentRepository] Executing tool: ${functionCall.name}, Arguments: ${functionCall.arguments}")
                 val toolResult = toolExecutor.executeTool(functionCall)
 
                 // For history: replace image data with placeholder

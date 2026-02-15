@@ -103,6 +103,19 @@ else
 fi
 
 echo ""
+
+# GigaChat credentials info (for CRM smart search)
+if [ -n "$GIGACHAT_CLIENT_ID" ] && [ -n "$GIGACHAT_CLIENT_SECRET" ]; then
+    echo "✓ GIGACHAT credentials are set — CRM smart search with LLM enabled"
+else
+    echo "ℹ  GIGACHAT credentials not set — CRM will use simple keyword search"
+    echo "   To enable LLM-powered search:"
+    echo "   export GIGACHAT_CLIENT_ID=\"your_client_id\""
+    echo "   export GIGACHAT_CLIENT_SECRET=\"your_client_secret\""
+    echo "   See: mcp-servers/SMART_SEARCH.md"
+fi
+
+echo ""
 echo "Press Ctrl+C to stop all servers"
 echo ""
 echo "===================================="
@@ -120,17 +133,17 @@ cleanup() {
 
 trap cleanup SIGINT SIGTERM
 
-# Start Git MCP Server in background
+# Start Git MCP Server in background with logging to both file and stdout
 echo "[Git MCP] Starting on port 8010..."
-python -m git.main --repo-path "$GIT_REPO_PATH" --no-auth > /tmp/git-mcp.log 2>&1 &
+python -m git.main --repo-path "$GIT_REPO_PATH" --no-auth 2>&1 | tee /tmp/git-mcp.log &
 GIT_PID=$!
 
 # Wait a bit for Git server to start
 sleep 2
 
-# Start CRM MCP Server in background
+echo ""
 echo "[CRM MCP] Starting on port 8011..."
-python -m crm.main --no-auth > /tmp/crm-mcp.log 2>&1 &
+python -m crm.main --no-auth 2>&1 | tee /tmp/crm-mcp.log &
 CRM_PID=$!
 
 # Wait a bit for CRM server to start
@@ -142,9 +155,9 @@ echo ""
 echo "Git MCP Server: http://localhost:8010 (PID: $GIT_PID)"
 echo "CRM MCP Server: http://localhost:8011 (PID: $CRM_PID)"
 echo ""
-echo "Logs:"
-echo "  tail -f /tmp/git-mcp.log"
-echo "  tail -f /tmp/crm-mcp.log"
+echo "Logs also saved to:"
+echo "  /tmp/git-mcp.log"
+echo "  /tmp/crm-mcp.log"
 echo ""
 
 # Wait for all background processes
