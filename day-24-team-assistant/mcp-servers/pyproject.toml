@@ -1,0 +1,19 @@
+[project]
+name = "mcp-git-server"
+version = "1.0.0"
+description = "Git MCP Server - Git operations via Model Context Protocol"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+]
+
+[project.scripts]
+mcp-git = "git.main:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["shared", "git"]

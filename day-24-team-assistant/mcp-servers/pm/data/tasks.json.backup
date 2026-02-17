@@ -1,0 +1,258 @@
+[
+  {
+    "id": "task_001",
+    "project_id": "proj_001",
+    "title": "Добавить поддержку RAG в AI Agent",
+    "description": "Интегрировать Retrieval-Augmented Generation для работы с документацией проекта. Должен искать релевантную информацию в индексе документов и использовать её для генерации ответов.",
+    "status": "done",
+    "priority": "high",
+    "assignee": "developer1",
+    "labels": [
+      "feature",
+      "ai",
+      "rag"
+    ],
+    "git_branch": "feature/rag-support",
+    "git_commits": [
+      "abc123",
+      "def456"
+    ],
+    "created_at": "2026-02-01T10:00:00Z",
+    "updated_at": "2026-02-10T16:30:00Z",
+    "due_date": "2026-02-10",
+    "estimated_hours": 16,
+    "spent_hours": 18
+  },
+  {
+    "id": "task_002",
+    "project_id": "proj_001",
+    "title": "Создать CRM MCP сервер для поддержки пользователей",
+    "description": "Разработать Python MCP сервер для доступа к данным CRM: пользователи, тикеты, история обращений. Добавить умный поиск с расширением запросов через LLM.",
+    "status": "done",
+    "priority": "high",
+    "assignee": "developer2",
+    "labels": [
+      "feature",
+      "mcp",
+      "crm"
+    ],
+    "git_branch": "feature/crm-server",
+    "git_commits": [
+      "ghi789"
+    ],
+    "created_at": "2026-02-05T09:00:00Z",
+    "updated_at": "2026-02-12T15:00:00Z",
+    "due_date": "2026-02-12",
+    "estimated_hours": 20,
+    "spent_hours": 22
+  },
+  {
+    "id": "task_003",
+    "project_id": "proj_001",
+    "title": "Реализовать команду /support для технической поддержки",
+    "description": "Добавить специализированную команду для технической поддержки. Должна объединять RAG (поиск в документации) и CRM (данные пользователя, тикеты) для персонализированных ответов.",
+    "status": "done",
+    "priority": "medium",
+    "assignee": "developer1",
+    "labels": [
+      "feature",
+      "command",
+      "support"
+    ],
+    "git_branch": "feature/support-command",
+    "git_commits": [
+      "jkl012"
+    ],
+    "created_at": "2026-02-08T11:00:00Z",
+    "updated_at": "2026-02-13T14:00:00Z",
+    "due_date": "2026-02-13",
+    "estimated_hours": 12,
+    "spent_hours": 14
+  },
+  {
+    "id": "task_004",
+    "project_id": "proj_001",
+    "title": "Добавить команду /review-pr для code review",
+    "description": "Реализовать автоматический code review с использованием специализированных чек-листов для различных технологий (Kotlin, Python, SQL). Поддержка больших PR через fallback метод.",
+    "status": "done",
+    "priority": "medium",
+    "assignee": "developer2",
+    "labels": [
+      "feature",
+      "command",
+      "code-review"
+    ],
+    "git_branch": "feature/review-pr",
+    "git_commits": [
+      "mno345"
+    ],
+    "created_at": "2026-02-10T10:00:00Z",
+    "updated_at": "2026-02-14T12:00:00Z",
+    "due_date": "2026-02-14",
+    "estimated_hours": 14,
+    "spent_hours": 16
+  },
+  {
+    "id": "task_005",
+    "project_id": "proj_001",
+    "title": "Создать Project Management MCP сервер",
+    "description": "Разработать MCP сервер для управления задачами проекта. CRUD операции, фильтрация, поиск, связь с Git. AI-анализ приоритетов через GigaChat. Дашборд с метриками проекта.",
+    "status": "in_progress",
+    "priority": "high",
+    "assignee": "developer1",
+    "labels": [
+      "feature",
+      "mcp",
+      "project-management"
+    ],
+    "git_branch": "feature/pm-server",
+    "git_commits": [],
+    "created_at": "2026-02-15T09:00:00Z",
+    "updated_at": "2026-02-15T10:30:00Z",
+    "due_date": "2026-02-18",
+    "estimated_hours": 24,
+    "spent_hours": 8
+  },
+  {
+    "id": "task_006",
+    "project_id": "proj_001",
+    "title": "Реализовать команду /task для работы с задачами",
+    "description": "Добавить команду /task с подкомандами: create, list, status, priorities. Интеграция с RAG (знания о проекте), Git MCP (коммиты), AI анализ приоритетов.",
+    "status": "open",
+    "priority": "high",
+    "assignee": "developer1",
+    "labels": [
+      "feature",
+      "command",
+      "project-management"
+    ],
+    "git_branch": "",
+    "git_commits": [],
+    "created_at": "2026-02-15T10:00:00Z",
+    "updated_at": "2026-02-15T10:00:00Z",
+    "due_date": "2026-02-18",
+    "estimated_hours": 12,
+    "spent_hours": 0
+  },
+  {
+    "id": "task_007",
+    "project_id": "proj_001",
+    "title": "Написать документацию для Day 24",
+    "description": "Создать полную документацию для Team Assistant: обзор, setup guide, сценарии тестирования, README для PM сервера.",
+    "status": "open",
+    "priority": "medium",
+    "assignee": "developer2",
+    "labels": [
+      "documentation"
+    ],
+    "git_branch": "",
+    "git_commits": [],
+    "created_at": "2026-02-15T10:30:00Z",
+    "updated_at": "2026-02-15T10:30:00Z",
+    "due_date": "2026-02-19",
+    "estimated_hours": 6,
+    "spent_hours": 0
+  },
+  {
+    "id": "task_008",
+    "project_id": "proj_001",
+    "title": "Оптимизировать производительность индексации PDF",
+    "description": "Улучшить скорость индексации больших PDF файлов. Рассмотреть возможность параллельной обработки страниц.",
+    "status": "open",
+    "priority": "low",
+    "assignee": "developer2",
+    "labels": [
+      "optimization",
+      "indexing"
+    ],
+    "git_branch": "",
+    "git_commits": [],
+    "created_at": "2026-02-14T14:00:00Z",
+    "updated_at": "2026-02-14T14:00:00Z",
+    "due_date": "2026-02-25",
+    "estimated_hours": 8,
+    "spent_hours": 0
+  },
+  {
+    "id": "task_009",
+    "project_id": "proj_001",
+    "title": "Исправить баг с сохранением настроек AI Agent",
+    "description": "При перезапуске AI Agent теряются настройки RAG (путь к индексу). Нужно сохранять конфигурацию в файл.",
+    "status": "blocked",
+    "priority": "medium",
+    "assignee": "developer1",
+    "labels": [
+      "bug",
+      "settings"
+    ],
+    "git_branch": "",
+    "git_commits": [],
+    "created_at": "2026-02-13T16:00:00Z",
+    "updated_at": "2026-02-14T09:00:00Z",
+    "due_date": "2026-02-17",
+    "estimated_hours": 4,
+    "spent_hours": 1
+  },
+  {
+    "id": "task_010",
+    "project_id": "proj_001",
+    "title": "Добавить тесты для MCP серверов",
+    "description": "Написать unit и integration тесты для Git, CRM и PM MCP серверов. Покрытие должно быть не менее 80%.",
+    "status": "open",
+    "priority": "low",
+    "assignee": "",
+    "labels": [
+      "testing",
+      "quality"
+    ],
+    "git_branch": "",
+    "git_commits": [],
+    "created_at": "2026-02-15T11:00:00Z",
+    "updated_at": "2026-02-15T11:00:00Z",
+    "due_date": "2026-02-22",
+    "estimated_hours": 16,
+    "spent_hours": 0
+  },
+  {
+    "id": "task_011",
+    "project_id": "proj_001",
+    "title": "Интегрировать Ollama для локальных embeddings",
+    "description": "Добавить поддержку Ollama как альтернативы GigaChat для генерации embeddings. Это позволит работать офлайн.",
+    "status": "open",
+    "priority": "low",
+    "assignee": "",
+    "labels": [
+      "feature",
+      "embeddings",
+      "ollama"
+    ],
+    "git_branch": "",
+    "git_commits": [],
+    "created_at": "2026-02-12T13:00:00Z",
+    "updated_at": "2026-02-12T13:00:00Z",
+    "due_date": "2026-03-01",
+    "estimated_hours": 10,
+    "spent_hours": 0
+  },
+  {
+    "id": "task_012",
+    "project_id": "proj_001",
+    "title": "Создать мобильную версию Chat приложения",
+    "description": "Адаптировать UI для мобильных устройств. Улучшить отзывчивость интерфейса, оптимизировать размеры шрифтов и кнопок.",
+    "status": "open",
+    "priority": "critical",
+    "assignee": "developer2",
+    "labels": [
+      "feature",
+      "mobile",
+      "ui"
+    ],
+    "git_branch": "",
+    "git_commits": [],
+    "created_at": "2026-02-14T10:00:00Z",
+    "updated_at": "2026-02-14T10:00:00Z",
+    "due_date": "2026-02-20",
+    "estimated_hours": 32,
+    "spent_hours": 0
+  }
+]

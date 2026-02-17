@@ -1,0 +1,58 @@
+{
+  "metadata": {
+    "last_task_id": 3
+  },
+  "tasks": [
+    {
+      "id": "task_001",
+      "project_id": "proj_001",
+      "title": "Добавить поддержку темной темы в UI",
+      "description": "Реализовать переключение между светлой и темной темой для всего приложения.\nДобавить настройку в Settings.\nСохранять выбранную тему в локальном хранилище.\nПрименять тему ко всем экранам: Chat, Sessions, Settings, MCP Management.",
+      "status": "open",
+      "priority": "high",
+      "assignee": "developer1",
+      "labels": ["feature", "ui", "enhancement"],
+      "git_branch": "",
+      "git_commits": [],
+      "created_at": "2026-02-15T10:00:00",
+      "updated_at": "2026-02-15T10:00:00",
+      "due_date": "2026-02-20",
+      "estimated_hours": 8,
+      "spent_hours": 0
+    },
+    {
+      "id": "task_002",
+      "project_id": "proj_001",
+      "title": "Исправить баг с перезагрузкой сессий",
+      "description": "При переключении между сессиями иногда теряется история сообщений. Необходимо исследовать и исправить проблему с загрузкой данных из SQLDelight.",
+      "status": "in_progress",
+      "priority": "critical",
+      "assignee": "developer2",
+      "labels": ["bug", "database", "urgent"],
+      "git_branch": "fix/session-reload",
+      "git_commits": ["abc123"],
+      "created_at": "2026-02-14T14:30:00",
+      "updated_at": "2026-02-16T09:15:00",
+      "due_date": "2026-02-17",
+      "estimated_hours": 4,
+      "spent_hours": 2
+    },
+    {
+      "id": "task_003",
+      "project_id": "proj_001",
+      "title": "Оптимизировать производительность RAG поиска",
+      "description": "RAG поиск работает медленно на больших индексах (>1000 документов).\nПрофилировать узкие места.\nРассмотреть кэширование эмбеддингов.\nОптимизировать косинусное сравнение векторов.\nДобавить индексирование для быстрого поиска.\nЦелевое время отклика: < 500ms для запроса.",
+      "status": "open",
+      "priority": "medium",
+      "assignee": "",
+      "labels": ["performance", "rag", "optimization"],
+      "git_branch": "",
+      "git_commits": [],
+      "created_at": "2026-02-16T08:00:00",
+      "updated_at": "2026-02-16T08:00:00",
+      "due_date": "2026-02-25",
+      "estimated_hours": 12,
+      "spent_hours": 0
+    }
+  ]
+}
