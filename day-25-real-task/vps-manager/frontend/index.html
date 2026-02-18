@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VPS Manager</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ── Common Header ──────────────────────────────────────────────────────────── -->
+<header>
+  <div class="logo">VPS<span>Manager</span></div>
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="wizard" onclick="switchTab('wizard')">VPS Wizard</button>
+    <button class="tab-btn" data-tab="deploy" onclick="switchTab('deploy')">Deploy Manager</button>
+  </div>
+  <div class="header-badge" id="connection-badge">
+    <span class="badge-dot"></span>
+    <span id="badge-text">не подключён</span>
+  </div>
+</header>
+
+<!-- ── VPS Wizard Tab ─────────────────────────────────────────────────────────── -->
+<div id="tab-wizard" class="tab-content">
+
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <div class="sidebar-section">Шаги</div>
+    <div id="sidebar-steps">
+      <div class="step-item active">
+        <div class="step-dot">1</div>
+        <div class="step-label">Выбор сценария</div>
+      </div>
+      <div class="step-item">
+        <div class="step-dot">2</div>
+        <div class="step-label">Подключение к серверу</div>
+      </div>
+      <div class="step-item">
+        <div class="step-dot">3</div>
+        <div class="step-label">Параметры</div>
+      </div>
+      <div class="step-item">
+        <div class="step-dot">4</div>
+        <div class="step-label">Выполнение</div>
+      </div>
+      <div class="step-item">
+        <div class="step-dot">5</div>
+        <div class="step-label">Готово</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main wizard content -->
+  <main id="main">
+
+    <!-- PAGE: scenario -->
+    <div id="page-scenario" class="page">
+
+      <details class="card vps-about">
+        <summary>
+          <span>ℹ Что такое VPS и где его купить?</span>
+          <span class="vps-about-arrow">▸</span>
+        </summary>
+        <div class="vps-about-body">
+          <div class="vps-about-cols">
+            <div class="vps-about-section">
+              <h3>Что такое VPS?</h3>
+              <ul>
+                <li><strong>VPS (Virtual Private Server)</strong> — ваш виртуальный сервер в дата-центре с гарантированными ресурсами и полным root-доступом</li>
+                <li><strong>Shared-хостинг</strong> — тысячи сайтов на одной машине, нет root-доступа. Только для простых сайтов-визиток</li>
+                <li><strong>VPS</strong> — свои CPU/RAM/диск, любая ОС, полный контроль. Оптимально для большинства задач (~300–800 ₽/мес)</li>
+                <li><strong>Выделенный сервер</strong> — физическая машина целиком. Нужен при очень высоких нагрузках</li>
+                <li><strong>Облако (AWS, GCP, Azure)</strong> — автоматическое масштабирование, сложнее и дороже при постоянной нагрузке</li>
+              </ul>
+            </div>
+            <div class="vps-about-section">
+              <h3>Что можно делать на VPS?</h3>
+              <ul>
+                <li>Личный VPN (WireGuard, OpenVPN) — обходить блокировки, защищать трафик</li>
+                <li>Сайты и веб-приложения с доменом и SSL-сертификатом</li>
+                <li>Telegram / Discord боты, парсеры, скрипты автоматизации</li>
+                <li>Почтовый сервер, базы данных, CI/CD pipeline</li>
+                <li>Игровые серверы (Minecraft и др.)</li>
+                <li>Резервное хранилище, торрент-сидер, медиасервер</li>
+              </ul>
+            </div>
+          </div>
+          <div class="vps-about-cols">
+            <div class="vps-about-section">
+              <h3>Международные провайдеры</h3>
+              <ul>
+                <li><a href="https://hetzner.com" target="_blank" rel="noopener">Hetzner</a> — от €3.8/мес, Германия/Финляндия/США. Лучшее соотношение цена/качество</li>
+                <li><a href="https://digitalocean.com" target="_blank" rel="noopener">DigitalOcean</a> — от $6/мес, 15 регионов, отличная документация</li>
+                <li><a href="https://vultr.com" target="_blank" rel="noopener">Vultr</a> — от $6/мес, 32 региона по всему миру</li>
+                <li><a href="https://linode.com" target="_blank" rel="noopener">Linode / Akamai</a> — от $5/мес, надёжный с 2003 года</li>
+                <li><a href="https://ovhcloud.com" target="_blank" rel="noopener">OVHcloud</a> — от €3.5/мес, Европа/Канада</li>
+                <li><a href="https://contabo.com" target="_blank" rel="noopener">Contabo</a> — от €4.99/мес, много RAM/диска за те же деньги</li>
+              </ul>
+            </div>
+            <div class="vps-about-section">
+              <h3>Российские провайдеры</h3>
+              <ul>
+                <li><a href="https://selectel.ru" target="_blank" rel="noopener">Selectel</a> — от 300 ₽/мес, Москва/СПб, высокое качество и SLA</li>
+                <li><a href="https://timeweb.cloud" target="_blank" rel="noopener">TimeWeb Cloud</a> — от 149 ₽/мес, удобная панель, хорошо для новичков</li>
+                <li><a href="https://reg.ru" target="_blank" rel="noopener">REG.RU</a> — от 149 ₽/мес, крупнейший российский регистратор</li>
+                <li><a href="https://beget.com" target="_blank" rel="noopener">Beget</a> — от 299 ₽/мес, популярен для PHP/WordPress</li>
+                <li><a href="https://aeza.net" target="_blank" rel="noopener">Aeza</a> — от 99 ₽/мес, серверы в разных странах</li>
+                <li><a href="https://cloud.ru" target="_blank" rel="noopener">Cloud.ru (SberCloud)</a> — от 500 ₽/мес, корпоративного класса</li>
+              </ul>
+            </div>
+          </div>
+          <div class="vps-about-section">
+            <h3>Как заказать VPS: пошагово</h3>
+            <ol class="vps-steps">
+              <li>Зарегистрируйтесь у провайдера (обычно нужен email + верификация по телефону или карте)</li>
+              <li>Создайте сервер: выберите регион рядом с вашими пользователями, конфигурацию (1 vCPU / 1 GB RAM достаточно для старта)</li>
+              <li>Выберите ОС — рекомендуем <strong>Ubuntu 22.04 LTS</strong> (мастер настроен именно под неё)</li>
+              <li>Установите пароль root или загрузите свой SSH-ключ (публичную часть)</li>
+              <li>Дождитесь запуска сервера (обычно 30–60 секунд)</li>
+              <li>Скопируйте IP-адрес из панели управления и введите его в следующем шаге мастера</li>
+            </ol>
+          </div>
+          <div class="vps-about-note">
+            Минимальные требования: <strong>Ubuntu 22.04 LTS</strong>, 512 MB RAM (для VPN) или 1 GB RAM (для сайта/приложения), 10 GB SSD, SSH-доступ по паролю или ключу.
+          </div>
+        </div>
+      </details>
+
+      <div class="card">
+        <div class="card-title">Выберите сценарий</div>
+        <div class="card-sub">Что хотите развернуть на сервере?</div>
+        <div class="scenario-grid" id="scenario-grid"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btn-scenario-next" disabled onclick="goToPage('credentials')">
+          Далее →
+        </button>
+      </div>
+    </div>
+
+    <!-- PAGE: credentials -->
+    <div id="page-credentials" class="page hidden">
+      <div class="card">
+        <div class="card-title">Подключение к серверу</div>
+        <div class="card-sub">SSH-доступ к вашему VPS. Обычно это root и пароль из письма провайдера.</div>
+        <div class="form-grid">
+          <div class="form-row">
+            <div class="field">
+              <label>IP-адрес сервера</label>
+              <input id="ssh-host" type="text" placeholder="1.2.3.4" autocomplete="off">
+            </div>
+            <div class="field">
+              <label>Порт SSH</label>
+              <input id="ssh-port" type="number" value="22" min="1" max="65535">
+            </div>
+          </div>
+          <div class="field">
+            <label>Имя пользователя</label>
+            <input id="ssh-user" type="text" value="root" placeholder="root">
+          </div>
+          <div class="field">
+            <label>Пароль</label>
+            <input id="ssh-pass" type="password" placeholder="Пароль от сервера">
+          </div>
+          <details>
+            <summary style="cursor:pointer; font-size:13px; color:var(--text-dim); margin-bottom:8px;">
+              Или использовать приватный SSH-ключ
+            </summary>
+            <div class="field" style="margin-top:8px;">
+              <label>Приватный ключ (PEM / OpenSSH)</label>
+              <textarea id="ssh-key" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----
+...
+-----END OPENSSH PRIVATE KEY-----"></textarea>
+            </div>
+          </details>
+        </div>
+        <div id="connect-error" class="alert alert-danger hidden" style="margin-top:16px;"></div>
+        <div id="connect-success" class="alert alert-success hidden" style="margin-top:16px;"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-outline" onclick="goToPage('scenario')">← Назад</button>
+        <button class="btn btn-primary" id="btn-connect" onclick="testConnection()">
+          Проверить подключение
+        </button>
+        <button class="btn btn-primary hidden" id="btn-creds-next" onclick="goToPage('inputs')">
+          Далее →
+        </button>
+      </div>
+    </div>
+
+    <!-- PAGE: inputs -->
+    <div id="page-inputs" class="page hidden">
+      <div class="card">
+        <div class="card-title">Параметры сценария</div>
+        <div class="card-sub">Заполните данные, необходимые для настройки.</div>
+        <div id="inputs-form" class="form-grid"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-outline" onclick="goToPage('credentials')">← Назад</button>
+        <button class="btn btn-primary" id="btn-start-exec" onclick="startExecution()">
+          Начать настройку →
+        </button>
+      </div>
+    </div>
+
+    <!-- PAGE: executing -->
+    <div id="page-executing" class="page hidden">
+      <div class="card">
+        <div class="card-title">Настройка сервера</div>
+        <div class="card-sub" id="exec-scenario-title">—</div>
+        <div class="progress-bar"><div class="progress-bar-fill" id="exec-progress" style="width:0%"></div></div>
+        <div class="progress-label" id="exec-progress-label">0 / 0</div>
+        <div style="height:16px;"></div>
+        <div class="exec-steps" id="exec-steps-list"></div>
+      </div>
+
+      <div class="card" id="terminal-card">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+          <span style="font-size:13px; font-weight:600; color:var(--text-dim);">Вывод команд</span>
+          <button class="btn btn-outline" style="padding:4px 12px; font-size:12px;" onclick="clearTerminal()">Очистить</button>
+        </div>
+        <div class="terminal" id="terminal"></div>
+      </div>
+
+      <div id="download-section" class="hidden">
+        <div class="card" style="border-color: rgba(99,102,241,.4);">
+          <div style="font-size:13px; font-weight:600; color:var(--text-dim); margin-bottom:12px;">
+            Файлы для скачивания
+          </div>
+          <div id="download-buttons" style="display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+      </div>
+
+      <div id="exec-error-panel" class="hidden">
+        <div class="card error-panel">
+          <div class="error-panel-header">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            <span id="error-panel-title">Шаг завершился с ошибкой</span>
+          </div>
+          <div id="error-hints-list"></div>
+          <div class="error-panel-actions" id="error-panel-actions"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: done -->
+    <div id="page-done" class="page hidden">
+      <div class="card" style="text-align:center; padding:40px 24px;">
+        <div style="font-size:56px; margin-bottom:16px;">✅</div>
+        <div class="card-title" style="font-size:24px;">Сервер настроен!</div>
+        <div class="card-sub" id="done-subtitle" style="font-size:15px;"></div>
+      </div>
+      <div class="card" id="done-info-card" style="display:none;">
+        <div class="card-title" style="font-size:16px;">Следующие шаги</div>
+        <div id="done-info" class="info-block" style="margin-top:12px;"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-outline" onclick="resetWizard()">Начать заново</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ── Deploy Manager Tab ──────────────────────────────────────────────────────── -->
+<div id="tab-deploy" class="tab-content tab-hidden">
+  <div class="dm-container">
+
+    <!-- SSH Подключение -->
+    <div class="card" id="dm-card-connect">
+      <div class="card-title">SSH Подключение</div>
+      <div class="card-sub">Данные для доступа к VPS-серверу.</div>
+      <div class="form-grid">
+        <div class="form-row">
+          <div class="field">
+            <label>IP-адрес / хост</label>
+            <input id="dm-ssh-host" type="text" placeholder="1.2.3.4" autocomplete="off">
+          </div>
+          <div class="field field-sm">
+            <label>Порт</label>
+            <input id="dm-ssh-port" type="number" value="22" min="1" max="65535">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label>Пользователь</label>
+            <input id="dm-ssh-user" type="text" value="root" placeholder="root">
+          </div>
+          <div class="field">
+            <label>Пароль</label>
+            <input id="dm-ssh-pass" type="password" placeholder="Пароль от сервера">
+          </div>
+        </div>
+        <details>
+          <summary>Или использовать приватный SSH-ключ</summary>
+          <div class="field" style="margin-top:10px;">
+            <label>Приватный ключ (PEM / OpenSSH)</label>
+            <textarea id="dm-ssh-key" rows="4"
+              placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;...&#10;-----END OPENSSH PRIVATE KEY-----"></textarea>
+          </div>
+        </details>
+      </div>
+      <div id="dm-connect-error" class="alert alert-danger hidden" style="margin-top:14px;"></div>
+      <div class="btn-row">
+        <button class="btn btn-primary dm-primary" id="dm-btn-connect" onclick="dm_connect()">
+          Подключиться
+        </button>
+        <span id="dm-connect-spinner" class="hidden" style="font-size:13px; color:var(--text-dim);">
+          Подключение…
+        </span>
+      </div>
+    </div>
+
+    <!-- Конфигурация деплоя -->
+    <div class="card hidden" id="dm-card-config">
+      <div class="card-title">Конфигурация деплоя</div>
+      <div class="card-sub">Укажите, что и куда копировать.</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Локальный путь к web-app/</label>
+          <input id="dm-local-path" type="text" placeholder="/Users/you/project/web-app">
+          <span class="hint-text">Папка с backend/ и frontend/. Файл .env и .venv не загружаются.</span>
+        </div>
+        <div class="field">
+          <label>Путь на сервере</label>
+          <input id="dm-remote-path" type="text" placeholder="/opt/jurilytics">
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label>Имя systemd-сервиса</label>
+            <input id="dm-service-name" type="text" placeholder="jurilytics">
+          </div>
+          <div class="field">
+            <label>Пользователь сервиса</label>
+            <input id="dm-service-user" type="text" placeholder="root">
+            <span class="hint-text">Под кем запускать процесс (обычно root или ваш пользователь)</span>
+          </div>
+        </div>
+      </div>
+      <div style="border-top:1px solid var(--border); margin-top:16px; padding-top:14px;">
+        <div class="field-section-label">Администратор приложения (опционально)</div>
+        <div class="form-row" style="margin-top:10px;">
+          <div class="field">
+            <label>Имя пользователя</label>
+            <input id="dm-admin-username" type="text" placeholder="admin" autocomplete="off">
+          </div>
+          <div class="field">
+            <label>Пароль</label>
+            <input id="dm-admin-password" type="password" placeholder="минимум 6 символов">
+          </div>
+        </div>
+        <span class="hint-text">
+          Если заполнены — будут записаны в .env на сервере при деплое. Остальные переменные не затрагиваются.
+        </span>
+      </div>
+    </div>
+
+    <!-- Действия -->
+    <div class="hidden" id="dm-actions-panel">
+      <div class="actions-grid">
+        <button class="action-btn dm-action-btn" id="dm-btn-deploy" onclick="dm_runOp('deploy')">
+          <span class="action-icon">🚀</span>
+          <span class="action-label">Deploy</span>
+          <span class="action-desc">Синхронизация + pip + рестарт</span>
+        </button>
+        <button class="action-btn dm-action-btn" id="dm-btn-restart" onclick="dm_runOp('restart')">
+          <span class="action-icon">↺</span>
+          <span class="action-label">Перезапустить</span>
+          <span class="action-desc">systemctl restart</span>
+        </button>
+        <button class="action-btn dm-action-btn" id="dm-btn-status" onclick="dm_runOp('status')">
+          <span class="action-icon">●</span>
+          <span class="action-label">Статус</span>
+          <span class="action-desc">systemctl status</span>
+        </button>
+        <button class="action-btn dm-action-btn" id="dm-btn-logs" onclick="dm_runOp('logs')">
+          <span class="action-icon">📋</span>
+          <span class="action-label">Логи</span>
+          <span class="action-desc">journalctl -n 100</span>
+        </button>
+        <button class="action-btn dm-action-btn action-btn-setup" id="dm-btn-install" onclick="dm_runOp('install_service')">
+          <span class="action-icon">⚙️</span>
+          <span class="action-label">Установить сервис</span>
+          <span class="action-desc">Создать systemd unit</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Терминал -->
+    <div class="card hidden" id="dm-card-terminal">
+      <div class="terminal-header">
+        <span>Вывод</span>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <span id="dm-result-badge" style="font-size:13px;"></span>
+          <button class="btn btn-outline btn-sm" onclick="dm_clearTerminal()">Очистить</button>
+        </div>
+      </div>
+      <div class="terminal" id="dm-terminal"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Inline SVG icons (used by wizard JS) -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <symbol id="icon-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+  </symbol>
+  <symbol id="icon-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <circle cx="12" cy="12" r="10"/>
+    <line x1="2" y1="12" x2="22" y2="12"/>
+    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+  </symbol>
+  <symbol id="icon-server" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <rect x="2" y="2" width="20" height="8" rx="2" ry="2"/>
+    <rect x="2" y="14" width="20" height="8" rx="2" ry="2"/>
+    <line x1="6" y1="6" x2="6.01" y2="6"/>
+    <line x1="6" y1="18" x2="6.01" y2="18"/>
+  </symbol>
+  <symbol id="icon-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+    <polyline points="20 6 9 17 4 12"/>
+  </symbol>
+  <symbol id="icon-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+  </symbol>
+  <symbol id="icon-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <circle cx="12" cy="12" r="10"/>
+    <line x1="12" y1="8" x2="12" y2="12"/>
+    <line x1="12" y1="16" x2="12.01" y2="16"/>
+  </symbol>
+  <symbol id="icon-scale" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <line x1="12" y1="3" x2="12" y2="21"/>
+    <path d="M3 9l9-6 9 6"/>
+    <path d="M3 9c0 3.314 2.686 6 6 6s6-2.686 6-6"/>
+    <path d="M15 9c0 3.314 2.686 6 6 6s6-2.686 6-6" transform="translate(-6,0)"/>
+  </symbol>
+  <symbol id="icon-skip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <polyline points="5 9 12 16 19 9"/>
+  </symbol>
+</svg>
+
+<script src="app.js"></script>
+</body>
+</html>

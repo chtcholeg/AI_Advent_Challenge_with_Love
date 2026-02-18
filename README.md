@@ -1,6 +1,6 @@
 # AI Advent Challenge with Love
 
-21-дневный образовательный проект, демонстрирующий поэтапное создание AI-чат приложения на **Kotlin Compose Multiplatform** с интеграцией GigaChat API. Каждый день добавляет новую концепцию из мира LLM и AI-инструментов — от простого чата до полноценного Developer Assistant с RAG и MCP-серверами.
+25-дневный образовательный проект, демонстрирующий поэтапное создание AI-чат приложения на **Kotlin Compose Multiplatform** с интеграцией GigaChat API. Каждый день добавляет новую концепцию из мира LLM и AI-инструментов — от простого чата до полноценных продуктовых приложений с RAG, MCP-серверами и мульти-агентными пайплайнами.
 
 ## Технологии
 
@@ -40,7 +40,11 @@ AI_Advent_Challenge_with_Love/
 ├── day-18-rag-reranking/               # Ре-ранкинг результатов
 ├── day-19-citation-and-sources/        # Цитирование и источники
 ├── day-20-rag-chat/                    # Полноценный RAG-чат
-└── day-21-developer-assistant/         # Developer Assistant с Git MCP
+├── day-21-developer-assistant/         # Developer Assistant с Git MCP
+├── day-22-code-review/                 # Code Review Assistant
+├── day-23-user-support-assistant/      # User Support Assistant
+├── day-24-team-assistant/              # Team Assistant с PM MCP
+└── day-25-real-task/                   # Реальные продукты: JuriLytics + VPS Manager
 ```
 
 Каждая директория — самостоятельный проект, который можно собрать и запустить независимо.
@@ -93,6 +97,15 @@ AI_Advent_Challenge_with_Love/
 | **Day 20** | RAG Chat | Полноценный RAG-чат, объединяющий компоненты Days 16-19 |
 | **Day 21** | Developer Assistant | Python Git MCP-сервер (11 git-операций), AI как ассистент разработчика |
 
+### Phase 6: AI-агенты для реальных задач (Days 22-25)
+
+| День | Тема | Что добавлено |
+|------|------|---------------|
+| **Day 22** | Code Review Assistant | Команда `/review-pr`, специализированные чеклисты по технологиям (Kotlin Coroutines, MVI, SQL, Python Async и др.), детекция критических багов (race conditions, memory leaks, SQL injection), поддержка больших PR (>20 000 строк) |
+| **Day 23** | User Support Assistant | Команда `/support`, CRM MCP-сервер (порт 8011) с управлением тикетами, умный поиск с LLM-расширением запросов и морфологическим анализом, двойные источники (RAG + CRM) |
+| **Day 24** | Team Assistant | Команда `/task`, PM MCP-сервер (порт 8012) с полным CRUD задач, AI-анализ приоритетов, метрики проекта (velocity, workload, completion), интеграция Git + CRM + PM |
+| **Day 25** | Real Task | **JuriLytics**: мульти-агентный анализ юридических документов (параллельные специализированные агенты, верификация, gap-checker, Q&A-чат); **VPS Manager**: веб-мастер настройки VPS с WebSocket, поддержкой OpenVPN и Python-деплоя, SFTP-загрузкой файлов |
+
 ## Архитектура
 
 ```
@@ -127,7 +140,7 @@ Data Layer
 
 1. Перейдите в директорию нужного дня:
    ```bash
-   cd day-21-developer-assistant
+   cd day-25-real-task
    ```
 
 2. Создайте `local.properties` с API-ключами:
