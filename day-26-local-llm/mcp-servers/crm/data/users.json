@@ -1,0 +1,47 @@
+[
+  {
+    "id": "user_001",
+    "name": "Иван Петров",
+    "email": "ivan.petrov@example.com",
+    "subscriptionPlan": "Pro",
+    "registrationDate": "2024-01-15",
+    "lastActive": "2026-02-14",
+    "status": "active"
+  },
+  {
+    "id": "user_002",
+    "name": "Мария Сидорова",
+    "email": "maria.sidorova@example.com",
+    "subscriptionPlan": "Basic",
+    "registrationDate": "2024-03-20",
+    "lastActive": "2026-02-13",
+    "status": "active"
+  },
+  {
+    "id": "user_003",
+    "name": "Алексей Козлов",
+    "email": "alex.kozlov@example.com",
+    "subscriptionPlan": "Enterprise",
+    "registrationDate": "2023-11-10",
+    "lastActive": "2026-02-14",
+    "status": "active"
+  },
+  {
+    "id": "user_004",
+    "name": "Елена Новикова",
+    "email": "elena.novikova@example.com",
+    "subscriptionPlan": "Pro",
+    "registrationDate": "2024-06-05",
+    "lastActive": "2026-02-10",
+    "status": "active"
+  },
+  {
+    "id": "user_005",
+    "name": "Дмитрий Волков",
+    "email": "dmitry.volkov@example.com",
+    "subscriptionPlan": "Basic",
+    "registrationDate": "2024-08-12",
+    "lastActive": "2026-02-01",
+    "status": "inactive"
+  }
+]

@@ -1,0 +1,15 @@
+[
+  {
+    "id": "proj_001",
+    "name": "GigaChat Multiplatform Chat App",
+    "description": "Kotlin Compose Multiplatform приложение с интеграцией GigaChat AI, MCP серверами и RAG",
+    "status": "active",
+    "team": ["developer1", "developer2"],
+    "created_at": "2026-01-15T10:00:00Z",
+    "updated_at": "2026-02-15T10:00:00Z",
+    "repository": "https://github.com/example/gigachat-app",
+    "technologies": ["Kotlin", "Compose Multiplatform", "Python", "GigaChat", "MCP"],
+    "sprint_duration_weeks": 2,
+    "current_sprint": "Sprint 12"
+  }
+]

@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "git": {
+      "url": "http://localhost:8010/sse",
+      "transport": "sse",
+      "description": "Git MCP Server - provides Git repository operations"
+    },
+    "crm": {
+      "url": "http://localhost:8011/sse",
+      "transport": "sse",
+      "description": "CRM MCP Server - provides access to user and ticket data"
+    }
+  }
+}
