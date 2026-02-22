@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LLM Parameter Lab</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header class="header">
+  <h1>LLM <span>Parameter Lab</span></h1>
+  <div class="header-actions">
+    <button class="btn btn-secondary" id="btn-clear-all">Очистить результаты</button>
+    <button class="btn btn-run-all" id="btn-run-all">▶ Запустить все</button>
+  </div>
+</header>
+
+<!-- input panel -->
+<div class="input-panel">
+  <div class="input-panel-header">
+    <label>Входной текст</label>
+    <div class="sample-btns" id="sample-btns"></div>
+  </div>
+  <textarea id="input-text" rows="3" placeholder="Введите текст для извлечения данных..."></textarea>
+</div>
+
+<!-- columns -->
+<div class="columns-wrapper">
+  <div class="columns-toolbar">
+    <button class="btn btn-secondary" id="btn-add-col">+ Добавить колонку</button>
+    <span class="info" id="col-count-info"></span>
+  </div>
+  <div class="columns-scroll">
+    <div class="columns-grid" id="columns-grid">
+      <div class="add-column-card" id="add-col-card">
+        <span class="plus">+</span>
+        <span>Добавить колонку</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
