@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JuriLytics</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <div class="logo">
+<span class="logo-wordmark">Juri<span class="logo-accent">Lytics</span></span>
+    </div>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <span class="header-badge" id="header-badge"></span>
+      <button class="btn btn-outline btn-sm" onclick="openHistory()">История</button>
+      <button class="btn btn-outline btn-sm hidden" id="btn-admin" onclick="openAdmin()">Пользователи</button>
+      <span class="header-user" id="header-user"></span>
+      <button class="btn btn-outline btn-sm" onclick="logout()">Выйти</button>
+    </div>
+  </header>
+
+  <main id="main">
+
+    <!-- PAGE: upload -->
+    <div id="page-upload" class="page">
+      <div class="card upload-card">
+        <div class="card-title">Анализ юридического документа</div>
+        <div class="card-sub">Загрузите договор, оферту или пользовательское соглашение — ИИ найдёт опасные пункты и объяснит простым языком</div>
+
+        <div class="upload-zone" id="upload-zone">
+          <div class="upload-icon">📄</div>
+          <div class="upload-text">Перетащите файл сюда</div>
+          <div class="upload-hint">или</div>
+          <label class="btn btn-primary" for="file-input">Выбрать файл</label>
+          <input type="file" id="file-input" accept=".txt,.pdf" style="display:none">
+          <div class="upload-formats">.txt и .pdf · до 150 000 символов</div>
+        </div>
+
+        <div class="model-row">
+          <label class="model-label" for="model-select">Языковая модель</label>
+          <select id="model-select" class="model-select">
+            <!-- заполняется динамически из /api/models -->
+          </select>
+        </div>
+
+        <div id="upload-error" class="alert alert-danger hidden"></div>
+      </div>
+    </div>
+
+    <!-- PAGE: analysis -->
+    <div id="page-analysis" class="page hidden">
+      <div class="card">
+        <div class="card-title" id="analysis-title">Анализирую документ...</div>
+        <div class="card-sub" id="analysis-sub"></div>
+
+        <div class="agents-grid">
+          <div class="agent-card" id="agent-ip_rights">
+            <div class="agent-icon">⚖️</div>
+            <div class="agent-info">
+              <div class="agent-name">IP / Права</div>
+              <div class="agent-status" id="status-ip_rights">не используется</div>
+            </div>
+          </div>
+          <div class="agent-card" id="agent-financial">
+            <div class="agent-icon">💰</div>
+            <div class="agent-info">
+              <div class="agent-name">Финансы</div>
+              <div class="agent-status" id="status-financial">не используется</div>
+            </div>
+          </div>
+          <div class="agent-card" id="agent-obligations">
+            <div class="agent-icon">📋</div>
+            <div class="agent-info">
+              <div class="agent-name">Обязательства</div>
+              <div class="agent-status" id="status-obligations">не используется</div>
+            </div>
+          </div>
+          <div class="agent-card" id="agent-post_contract">
+            <div class="agent-icon">🔒</div>
+            <div class="agent-info">
+              <div class="agent-name">Пост-контракт</div>
+              <div class="agent-status" id="status-post_contract">не используется</div>
+            </div>
+          </div>
+          <div class="agent-card" id="agent-consumer_rights">
+            <div class="agent-icon">🛡️</div>
+            <div class="agent-info">
+              <div class="agent-name">Права потребителя</div>
+              <div class="agent-status" id="status-consumer_rights">не используется</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="aggregator-row" id="aggregator-row">
+          <div class="aggregator-label" id="aggregator-label">Агрегация результатов...</div>
+          <div class="progress-bar"><div class="progress-bar-fill" id="progress-fill" style="width:0%"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE: history -->
+    <div id="page-history" class="page hidden">
+      <div class="card">
+        <div class="card-title">История анализов</div>
+        <div id="history-empty" class="history-empty hidden">Нет сохранённых анализов</div>
+        <div id="history-list"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-outline" onclick="goToPage('upload')">← Назад</button>
+      </div>
+    </div>
+
+    <!-- PAGE: result -->
+    <div id="page-result" class="page hidden">
+      <div class="card result-card">
+        <div class="result-header">
+          <span class="result-badge">✅ Анализ завершён</span>
+          <span class="result-filename" id="result-filename"></span>
+        </div>
+        <div class="result-content" id="result-content"></div>
+      </div>
+
+      <div class="card chat-card">
+        <div class="chat-title">💬 Задайте вопрос по документу</div>
+        <div class="chat-messages" id="chat-messages"></div>
+        <div class="chat-input-row">
+          <input
+            id="chat-input"
+            class="chat-input"
+            type="text"
+            placeholder="Что будет если я нарушу пункт 5?"
+            autocomplete="off"
+          >
+          <button class="btn btn-primary" id="btn-ask" onclick="sendQuestion()">Отправить</button>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-outline" onclick="resetApp()">← Анализировать другой документ</button>
+      </div>
+    </div>
+
+    <!-- PAGE: admin -->
+    <div id="page-admin" class="page hidden">
+      <div class="card">
+        <div class="card-title">Пользователи</div>
+        <div id="admin-user-list"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="font-size:15px;">Добавить пользователя</div>
+        <div class="form-group" style="margin-top:16px;">
+          <label class="form-label" for="new-username">Имя пользователя</label>
+          <input id="new-username" class="form-input" type="text" placeholder="username">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="new-password">Пароль</label>
+          <input id="new-password" class="form-input" type="password" placeholder="минимум 6 символов">
+        </div>
+        <div id="admin-error" class="alert alert-danger hidden"></div>
+        <div id="admin-success" class="alert alert-success hidden"></div>
+        <button class="btn btn-primary" style="margin-top:8px;" onclick="createAdminUser()">Добавить</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="font-size:15px;">Локальная модель (Ollama)</div>
+        <div class="form-group" style="margin-top:16px;">
+          <label class="form-label" for="ollama-url">URL Ollama</label>
+          <input id="ollama-url" class="form-input" type="text" placeholder="http://localhost:11434">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="ollama-model">Основная модель</label>
+          <input id="ollama-model" class="form-input" type="text" placeholder="qwen2.5:7b">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="ollama-model2">Быстрая модель (необязательно)</label>
+          <input id="ollama-model2" class="form-input" type="text" placeholder="qwen2.5:3b">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="ollama-model3">Сверхбыстрая модель (необязательно)</label>
+          <input id="ollama-model3" class="form-input" type="text" placeholder="qwen2.5:1.5b">
+        </div>
+        <div id="ollama-error" class="alert alert-danger hidden"></div>
+        <div id="ollama-success" class="alert alert-success hidden"></div>
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <button class="btn btn-primary" onclick="saveOllamaSettings()">Сохранить</button>
+          <button class="btn btn-outline" onclick="testOllamaConnection()">Проверить связь</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="font-size:15px;">Тест языковых моделей</div>
+        <div class="form-group" style="margin-top:16px;">
+          <label class="form-label" for="llm-test-model">Модель</label>
+          <select id="llm-test-model" class="model-select" style="width:100%; padding:10px 14px;"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="llm-test-system">Системный промпт</label>
+          <textarea id="llm-test-system" class="form-input" rows="3" placeholder="Ты — полезный ассистент.">Ты — полезный ассистент.</textarea>
+        </div>
+        <div class="chat-messages" id="llm-test-messages" style="min-height:120px; max-height:400px; margin-bottom:12px;"></div>
+        <div class="chat-input-row">
+          <input id="llm-test-input" class="chat-input" type="text" placeholder="Напишите сообщение..." autocomplete="off">
+          <button class="btn btn-primary" id="btn-llm-test-send" onclick="sendLlmTestMessage()">Отправить</button>
+        </div>
+        <div id="llm-test-error" class="alert alert-danger hidden"></div>
+        <button class="btn btn-outline btn-sm" style="margin-top:12px;" onclick="resetLlmTest()">Сбросить диалог</button>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-outline" onclick="goToPage('upload')">← Назад</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

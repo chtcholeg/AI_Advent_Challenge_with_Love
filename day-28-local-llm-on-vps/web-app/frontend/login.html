@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JuriLytics — Вход</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="login-page">
+<div class="login-wrap">
+  <div style="text-align:center; margin-bottom:28px;">
+    <div class="logo" style="font-size:28px; justify-content:center;"><span class="logo-wordmark">Juri<span class="logo-accent">Lytics</span></span></div>
+  </div>
+  <div class="card login-card">
+    <div class="card-title" style="text-align:center; margin-bottom:20px;">Вход в систему</div>
+    <div class="form-group">
+      <label class="form-label" for="username">Имя пользователя</label>
+      <input id="username" class="form-input" type="text" autocomplete="username" placeholder="username">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="password">Пароль</label>
+      <input id="password" class="form-input" type="password" autocomplete="current-password" placeholder="••••••••">
+    </div>
+    <div id="login-error" class="alert alert-danger hidden"></div>
+    <button class="btn btn-primary" id="btn-login" style="width:100%; margin-top:8px;" onclick="doLogin()">Войти</button>
+  </div>
+</div>
+
+<script>
+  document.getElementById('password').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+
+  async function doLogin() {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const btn      = document.getElementById('btn-login');
+    const errEl    = document.getElementById('login-error');
+
+    if (!username || !password) {
+      showError('Введите имя пользователя и пароль');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '...';
+    errEl.classList.add('hidden');
+
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (res.ok) {
+        window.location.href = '/';
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showError(data.detail || 'Ошибка входа');
+      }
+    } catch {
+      showError('Ошибка соединения с сервером');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Войти';
+    }
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('login-error');
+    el.textContent = msg;
+    el.classList.remove('hidden');
+  }
+</script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 # AI Advent Challenge with Love
 
-25-дневный образовательный проект, демонстрирующий поэтапное создание AI-чат приложения на **Kotlin Compose Multiplatform** с интеграцией GigaChat API. Каждый день добавляет новую концепцию из мира LLM и AI-инструментов — от простого чата до полноценных продуктовых приложений с RAG, MCP-серверами и мульти-агентными пайплайнами.
+Образовательный проект, демонстрирующий поэтапное создание AI-чат приложения на **Kotlin Compose Multiplatform** с интеграцией GigaChat API. Каждый день добавляет новую концепцию из мира LLM и AI-инструментов — от простого чата до полноценных продуктовых приложений с RAG, MCP-серверами, мульти-агентными пайплайнами и локальными LLM.
 
 ## Технологии
 
@@ -44,7 +44,10 @@ AI_Advent_Challenge_with_Love/
 ├── day-22-code-review/                 # Code Review Assistant
 ├── day-23-user-support-assistant/      # User Support Assistant
 ├── day-24-team-assistant/              # Team Assistant с PM MCP
-└── day-25-real-task/                   # Реальные продукты: JuriLytics + VPS Manager
+├── day-25-real-task/                   # Реальные продукты: JuriLytics + VPS Manager
+├── day-26-local-llm/                   # Локальный LLM через Ollama (Kotlin Multiplatform)
+├── day-27-embedded-local-llm/          # Встроенный LLM на Android (Gemma 2 2B)
+└── day-28-local-llm-on-vps/           # JuriLytics + VPS Manager с поддержкой Ollama на VPS
 ```
 
 Каждая директория — самостоятельный проект, который можно собрать и запустить независимо.
@@ -106,6 +109,14 @@ AI_Advent_Challenge_with_Love/
 | **Day 24** | Team Assistant | Команда `/task`, PM MCP-сервер (порт 8012) с полным CRUD задач, AI-анализ приоритетов, метрики проекта (velocity, workload, completion), интеграция Git + CRM + PM |
 | **Day 25** | Real Task | **JuriLytics**: мульти-агентный анализ юридических документов (параллельные специализированные агенты, верификация, gap-checker, Q&A-чат); **VPS Manager**: веб-мастер настройки VPS с WebSocket, поддержкой OpenVPN и Python-деплоя, SFTP-загрузкой файлов |
 
+### Phase 7: Локальные LLM (Days 26-28)
+
+| День | Тема | Что добавлено |
+|------|------|---------------|
+| **Day 26** | Local LLM (Kotlin) | Интеграция Ollama в Kotlin Multiplatform-приложение: `OllamaApi` с OpenAI-совместимым эндпоинтом, модели Qwen2.5 (0.5B и 32B), индикатор статуса сервера, поддержка tool calling и RAG-эмбеддингов (`nomic-embed-text`) |
+| **Day 27** | Embedded Local LLM (Android) | Нативный Android-чат с Gemma 2 2B (INT4, CPU) через MediaPipe Tasks GenAI: полностью офлайн, потоковый вывод токен-за-токеном, MVVM + StateFlow |
+| **Day 28** | Local LLM on VPS | JuriLytics с поддержкой Ollama на VPS: слой абстракции `llm.py` (GigaChat + Ollama), выбор модели per-user в SQLite, admin-панель настройки Ollama, проверка подключения к VPS-серверу |
+
 ## Архитектура
 
 ```
@@ -140,7 +151,7 @@ Data Layer
 
 1. Перейдите в директорию нужного дня:
    ```bash
-   cd day-25-real-task
+   cd day-28-local-llm-on-vps
    ```
 
 2. Создайте `local.properties` с API-ключами:
