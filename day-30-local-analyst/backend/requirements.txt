@@ -1,0 +1,27 @@
+fastapi>=0.115.6
+uvicorn[standard]>=0.32.1
+python-multipart>=0.0.20
+pydantic>=2.11.0
+pydantic-settings>=2.8.0
+
+# Data processing
+pandas==2.2.3
+chardet==5.2.0
+charset-normalizer==3.4.1
+
+# Database
+aiosqlite==0.20.0
+
+# LLM
+httpx==0.28.1
+httpx-sse==0.4.0
+
+# SQL safety
+sqlparse==0.5.3
+
+# Export
+weasyprint==63.1
+markdown==3.7
+
+# Utils
+python-dotenv==1.0.1
