@@ -49,7 +49,8 @@ AI_Advent_Challenge_with_Love/
 ├── day-27-embedded-local-llm/          # Встроенный LLM на Android (Gemma 2 2B)
 ├── day-28-local-llm-on-vps/           # JuriLytics + VPS Manager с поддержкой Ollama на VPS
 ├── day-29-local-llm-optimization-and-adaptation/  # LLM Parameter Lab: JSON Extractor (Ollama + GigaChat)
-└── day-30-local-analyst/              # Local Log Analyst: анализ логов и данных через Ollama
+├── day-30-local-analyst/              # Local Log Analyst: анализ логов и данных через Ollama
+└── day-31-personalization/            # Персонализация: профиль пользователя → системный промпт
 ```
 
 Каждая директория — самостоятельный проект, который можно собрать и запустить независимо.
@@ -120,6 +121,7 @@ AI_Advent_Challenge_with_Love/
 | **Day 28** | Local LLM on VPS | JuriLytics с поддержкой Ollama на VPS: слой абстракции `llm.py` (GigaChat + Ollama), выбор модели per-user в SQLite, admin-панель настройки Ollama, проверка подключения к VPS-серверу |
 | **Day 29** | LLM Parameter Lab | Интерактивный side-by-side стенд для сравнения параметров LLM (модель, квантование, temperature, num_ctx, max_tokens, system prompt) на задаче JSON-экстракции; поддержка Ollama и GigaChat; параллельный batch-режим |
 | **Day 30** | Local Log Analyst | Веб-приложение для анализа логов через локальную LLM: загрузка CSV/JSON/SQLite/TXT, автодетект схемы, чат на естественном языке, генерация SQL + визуализация, streaming ответов, экспорт; утилита сбора отзывов из Google Play и RuStore |
+| **Day 31** | Personalization | Персонализация AI: профиль пользователя (имя, язык, интересы, уровень детализации, стиль примеров) автоматически преобразуется в системный промпт; настройка параметров модели (temperature, Top P, Top K, Max Tokens, Repetition Penalty) через слайдеры; предпросмотр итогового промпта в реальном времени |
 
 ## Архитектура
 

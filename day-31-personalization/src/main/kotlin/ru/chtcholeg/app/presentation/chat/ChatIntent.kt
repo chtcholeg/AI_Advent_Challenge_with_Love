@@ -1,0 +1,10 @@
+package ru.chtcholeg.app.presentation.chat
+
+sealed interface ChatIntent {
+    data class SendMessage(val text: String) : ChatIntent
+    data object RetryLastMessage : ChatIntent
+    data object NewSession : ChatIntent
+    data class SelectSession(val sessionId: String) : ChatIntent
+    data class DeleteSession(val sessionId: String) : ChatIntent
+    data object RefreshOllamaModels : ChatIntent
+}
