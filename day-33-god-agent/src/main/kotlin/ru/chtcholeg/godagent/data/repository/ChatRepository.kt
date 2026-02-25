@@ -136,13 +136,16 @@ class ChatRepository(
     }
 
     private fun extractJson(text: String): JsonObject? {
-        // Try to find JSON object in the response
-        val trimmed = text.trim()
-        val start = trimmed.indexOf('{')
-        val end = trimmed.lastIndexOf('}')
+        // Strip markdown code blocks if present
+        val stripped = text.trim()
+            .removePrefix("```json").removePrefix("```")
+            .removeSuffix("```")
+            .trim()
+        val start = stripped.indexOf('{')
+        val end = stripped.lastIndexOf('}')
         if (start == -1 || end == -1 || end <= start) return null
         return try {
-            val jsonStr = trimmed.substring(start, end + 1)
+            val jsonStr = stripped.substring(start, end + 1)
             Json { ignoreUnknownKeys = true }.parseToJsonElement(jsonStr).jsonObject
         } catch (e: Exception) {
             null
@@ -154,25 +157,49 @@ class ChatRepository(
         val personalization = settings.userProfile.buildPersonalizationPrompt()
 
         return buildString {
-            appendLine("Ты — God Agent, мощный персональный AI-ассистент.")
+            appendLine("Ты — God Agent, персональный AI-ассистент.")
             if (personalization.isNotBlank()) {
                 appendLine(personalization)
             }
             appendLine()
-            appendLine("У тебя есть следующие инструменты:")
+            appendLine("ТВОИ ОГРАНИЧЕНИЯ (критически важно):")
+            appendLine("- У тебя НЕТ встроенных часов. Ты не знаешь текущее время или дату.")
+            appendLine("- У тебя НЕТ данных о текущей погоде.")
+            appendLine("- У тебя НЕТ актуальных курсов валют.")
+            appendLine("- Ты не имеешь доступа к файлам, git-репозиторию или внешним системам.")
+            appendLine("Всё это доступно ТОЛЬКО через инструменты.")
+            appendLine()
+            appendLine("ДОСТУПНЫЕ ИНСТРУМЕНТЫ:")
             appendLine(toolsDescription)
             appendLine()
-            appendLine("ПРАВИЛА:")
-            appendLine("1. Если запрос простой (не нужны инструменты) — отвечай ТОЛЬКО JSON:")
-            appendLine("   {\"done\": true, \"answer\": \"твой ответ\"}")
-            appendLine("2. Если нужен инструмент — отвечай ТОЛЬКО JSON:")
-            appendLine("   {\"tool\": \"название_инструмента\", \"args\": {параметры}}")
-            appendLine("3. После получения результата инструмента — снова реши: нужен ещё инструмент или можно ответить.")
-            appendLine("4. Финальный ответ ВСЕГДА: {\"done\": true, \"answer\": \"...\"}")
-            appendLine("5. НИКОГДА не смешивай JSON с текстом. Только JSON в ответе.")
+            appendLine("ФОРМАТ ОТВЕТА — строго один из двух:")
+            appendLine()
+            appendLine("Вызов инструмента:")
+            appendLine("{\"tool\": \"название\", \"args\": {параметры}}")
+            appendLine()
+            appendLine("Финальный ответ:")
+            appendLine("{\"done\": true, \"answer\": \"текст\"}")
+            appendLine()
+            appendLine("Отвечай ТОЛЬКО JSON, никакого текста за пределами JSON-объекта.")
+            appendLine("После получения результата инструмента: отвечай финальным JSON или вызывай следующий инструмент.")
+            appendLine()
+            appendLine("ПРИМЕРЫ:")
+            appendLine()
+            appendLine("User: который час?")
+            appendLine("Неверно: {\"done\": true, \"answer\": \"Сейчас 14:00\"} — ты не знаешь время!")
+            appendLine("Верно:   {\"tool\": \"get_time\", \"args\": {}}")
+            appendLine()
+            appendLine("User: какая погода в Москве?")
+            appendLine("{\"tool\": \"get_weather\", \"args\": {\"city\": \"Москва\"}}")
+            appendLine()
+            appendLine("User: курс доллара к рублю")
+            appendLine("{\"tool\": \"get_currency\", \"args\": {\"from\": \"USD\", \"to\": \"RUB\"}}")
+            appendLine()
+            appendLine("User: 5 * 7?")
+            appendLine("{\"done\": true, \"answer\": \"35\"}")
             if (settings.gitRepoPath.isNotBlank()) {
                 appendLine()
-                appendLine("Текущий git репозиторий: ${settings.gitRepoPath}")
+                appendLine("Git репозиторий: ${settings.gitRepoPath}")
             }
         }.trim()
     }
