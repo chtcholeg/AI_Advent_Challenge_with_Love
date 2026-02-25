@@ -251,3 +251,7 @@ gigachat.clientSecret=ваш_client_secret
 - **Day 20** — RAG (DocumentIndexer, VectorStore) — архитектура переиспользована
 - **Day 21–24** — инструменты Git/GitHub/Telegram — логика переиспользована
 - **Day 9** — компрессия истории диалога — паттерн переиспользован
+
+## Видео
+
+- https://disk.yandex.ru/i/AjJcI57eSVrP4A
